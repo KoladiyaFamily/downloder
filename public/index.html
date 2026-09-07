@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Antigravity Video Downloader</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.92);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --success: #10b981;
+      --success-hover: #059669;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --purple: #8b5cf6;
+      --purple-hover: #7c3aed;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      color: #a5b4fc;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      margin-bottom: 12px;
+    }
+
+    .private-badge {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #fbbf24;
+    }
+
+    .title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(10, 14, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 0.95rem;
+      padding: 14px 16px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .select-field {
+      width: 100%;
+      background: rgba(10, 14, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 0.95rem;
+      padding: 12px 16px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      color: #fff;
+      background: var(--primary);
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-download {
+      background: var(--success);
+      font-size: 1.05rem;
+      padding: 15px;
+    }
+
+    .btn-download:hover:not(:disabled) {
+      background: var(--success-hover);
+    }
+
+    .btn-viral {
+      background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+      margin-top: 12px;
+      font-weight: 700;
+    }
+
+    .btn-viral:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .alert {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+      background: var(--danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-md);
+      color: #fca5a5;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin-top: 16px;
+    }
+
+    .alert.active {
+      display: flex;
+    }
+
+    .preview-card {
+      display: none;
+      margin-top: 20px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 20px;
+    }
+
+    .preview-card.active {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .thumbnail-container {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #0f1420;
+      aspect-ratio: 16 / 9;
+      margin-bottom: 14px;
+    }
+
+    .thumbnail-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .duration-badge {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .video-info {
+      margin-bottom: 16px;
+    }
+
+    .video-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.4;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+
+    .video-uploader {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .quality-wrapper {
+      margin-bottom: 16px;
+    }
+
+    .quality-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    /* Real Progress Bar Component */
+    .progress-box {
+      margin-top: 14px;
+      margin-bottom: 6px;
+      padding: 16px;
+      background: rgba(10, 14, 23, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .progress-stage {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .progress-percent {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1 0%, #10b981 100%);
+      border-radius: 9999px;
+      transition: width 0.25s ease;
+    }
+
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bytes {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .progress-network {
+      font-variant-numeric: tabular-nums;
+      color: #94a3b8;
+    }
+
+    /* Viral Clips Section */
+    .clips-section {
+      display: none;
+      margin-top: 24px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 20px;
+    }
+
+    .clips-section.active {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .clips-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .clips-heading {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f3f4f6;
+    }
+
+    .aspect-toggle {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .toggle-btn.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .clips-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .clip-card {
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .clip-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .clip-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+    }
+
+    .clip-score {
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(236, 72, 153, 0.2);
+      color: #f472b6;
+    }
+
+    .clip-hook {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.35;
+    }
+
+    .clip-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .clip-video {
+      width: 100%;
+      border-radius: 6px;
+      background: #000;
+      max-height: 260px;
+    }
+
+    .clip-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-clip-dl {
+      flex: 1;
+      padding: 10px;
+      font-size: 0.88rem;
+      background: var(--success);
+    }
+
+    /* Auth Screen */
+    .auth-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.95);
+      backdrop-filter: blur(12px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-overlay.active {
+      display: flex;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .auth-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+    }
+
+    .auth-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .auth-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Private Access Overlay -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-icon">🔒</div>
+      <h2 class="auth-title">Private Access Required</h2>
+      <p class="auth-desc">This application is private. Please enter the access password to continue.</p>
+      
+      <form id="authForm" class="input-group">
+        <input id="authPassword" type="password" class="input-field" placeholder="Access Password" required />
+        <button id="authBtn" type="submit" class="btn">
+          <span id="authBtnSpinner" class="spinner" style="display: none;"></span>
+          <span id="authBtnText">Unlock Downloader</span>
+        </button>
+      </form>
+      <div id="authError" class="alert" style="margin-top: 14px;"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <div class="logo-badge private-badge">
+        <span>🔒</span> Private Deployment
+      </div>
+      <h1 class="title">Video Downloader</h1>
+      <p class="subtitle">Paste a supported video URL to inspect, select quality, and download.</p>
+    </div>
+
+    <div class="card">
+      <form id="urlForm" class="input-group">
+        <div class="input-wrapper">
+          <input
+            id="urlInput"
+            type="url"
+            class="input-field"
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <button id="getBtn" type="submit" class="btn">
+          <span id="getBtnSpinner" class="spinner" style="display: none;"></span>
+          <span id="getBtnText">Get Video</span>
+        </button>
+      </form>
+
+      <!-- Error Alert -->
+      <div id="errorAlert" class="alert">
+        <span>⚠️</span>
+        <span id="errorMessage">Could not process this video URL.</span>
+      </div>
+
+      <!-- Preview & Download Section -->
+      <div id="previewCard" class="preview-card">
+        <div class="thumbnail-container">
+          <img id="previewThumbnail" class="thumbnail-img" src="" alt="Video thumbnail" />
+          <span id="previewDuration" class="duration-badge" style="display: none;">00:00</span>
+        </div>
+        
+        <div class="video-info">
+          <h2 id="previewTitle" class="video-title">Video Title</h2>
+          <div id="previewUploader" class="video-uploader">Channel Name</div>
+        </div>
+
+        <!-- Video Quality Selection -->
+        <div class="quality-wrapper">
+          <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
+          <select id="qualitySelect" class="select-field">
+            <option value="best">Best Quality</option>
+          </select>
+        </div>
+
+        <button id="downloadBtn" class="btn btn-download">
+          <span id="downloadBtnSpinner" class="spinner" style="display: none;"></span>
+          <span id="downloadBtnText">Download Video</span>
+        </button>
+        
+        <!-- Real Backend Progress Indicator -->
+        <div id="progressBox" class="progress-box" style="display: none;">
+          <div class="progress-header">
+            <span id="progressStage" class="progress-stage">Downloading Video</span>
+            <span id="progressPercent" class="progress-percent">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progressBar" class="progress-fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-stats">
+            <span id="progressBytes" class="progress-bytes">Preparing...</span>
+            <span id="progressNetwork" class="progress-network"></span>
+          </div>
+        </div>
+
+        <!-- Create Viral Clips Action -->
+        <button id="createClipsBtn" class="btn btn-viral">
+          <span id="createClipsSpinner" class="spinner" style="display: none;"></span>
+          <span id="createClipsText">✨ Create Viral Clips</span>
+        </button>
+
+        <button id="resetBtn" class="btn btn-secondary">
+          Download Another Video
+        </button>
+
+        <!-- Viral Clips Results Section -->
+        <div id="clipsSection" class="clips-section">
+          <div class="clips-title-bar">
+            <span class="clips-heading">Generated Viral Clips</span>
+            <div class="aspect-toggle">
+              <button id="btnAspectOriginal" class="toggle-btn active" type="button">Original (16:9)</button>
+              <button id="btnAspectVertical" class="toggle-btn" type="button">Shorts / Reels (9:16)</button>
+            </div>
+          </div>
+          <div id="clipsGrid" class="clips-grid"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="footer">
+      Private Testing Deployment &bull; Protected &bull; Does not bypass DRM or private access controls.
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const authOverlay = document.getElementById('authOverlay');
+    const authForm = document.getElementById('authForm');
+    const authPassword = document.getElementById('authPassword');
+    const authBtn = document.getElementById('authBtn');
+    const authBtnText = document.getElementById('authBtnText');
+    const authBtnSpinner = document.getElementById('authBtnSpinner');
+    const authError = document.getElementById('authError');
+
+    const urlForm = document.getElementById('urlForm');
+    const urlInput = document.getElementById('urlInput');
+    const getBtn = document.getElementById('getBtn');
+    const getBtnText = document.getElementById('getBtnText');
+    const getBtnSpinner = document.getElementById('getBtnSpinner');
+
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+
+    const previewCard = document.getElementById('previewCard');
+    const previewThumbnail = document.getElementById('previewThumbnail');
+    const previewDuration = document.getElementById('previewDuration');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewUploader = document.getElementById('previewUploader');
+    const qualitySelect = document.getElementById('qualitySelect');
+
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadBtnSpinner = document.getElementById('downloadBtnSpinner');
+    const downloadBtnText = document.getElementById('downloadBtnText');
+
+    const progressBox = document.getElementById('progressBox');
+    const progressStage = document.getElementById('progressStage');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressBar = document.getElementById('progressBar');
+    const progressBytes = document.getElementById('progressBytes');
+    const progressNetwork = document.getElementById('progressNetwork');
+
+    const createClipsBtn = document.getElementById('createClipsBtn');
+    const createClipsText = document.getElementById('createClipsText');
+    const createClipsSpinner = document.getElementById('createClipsSpinner');
+    const clipsSection = document.getElementById('clipsSection');
+    const clipsGrid = document.getElementById('clipsGrid');
+    const btnAspectOriginal = document.getElementById('btnAspectOriginal');
+    const btnAspectVertical = document.getElementById('btnAspectVertical');
+
+    const resetBtn = document.getElementById('resetBtn');
+
+    let currentVideoData = null;
+    let activeEventSource = null;
+    let isVerticalMode = false;
+
+    // Check Auth Status on Load
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+        if (!data.authenticated) {
+          authOverlay.classList.add('active');
+        } else {
+          authOverlay.classList.remove('active');
+        }
+      } catch (_) {}
+    }
+    checkAuthStatus();
+
+    // Login Submission
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      authError.style.display = 'none';
+      authBtn.disabled = true;
+      authBtnSpinner.style.display = 'inline-block';
+      authBtnText.textContent = 'Verifying...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: authPassword.value })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Incorrect password.');
+        }
+        authOverlay.classList.remove('active');
+        authPassword.value = '';
+      } catch (err) {
+        authError.textContent = err.message;
+        authError.style.display = 'block';
+      } finally {
+        authBtn.disabled = false;
+        authBtnSpinner.style.display = 'none';
+        authBtnText.textContent = 'Unlock Downloader';
+      }
+    });
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorAlert.classList.add('active');
+    }
+
+    function clearError() {
+      errorAlert.classList.remove('active');
+      errorMessage.textContent = '';
+    }
+
+    function resetProgressUI() {
+      if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+      }
+      progressBox.style.display = 'none';
+      progressBar.style.width = '0%';
+      progressPercent.textContent = '0%';
+      progressStage.textContent = 'Downloading Video';
+      progressBytes.textContent = '';
+      progressNetwork.textContent = '';
+    }
+
+    function setGetLoading(loading) {
+      if (loading) {
+        getBtn.disabled = true;
+        getBtnSpinner.style.display = 'inline-block';
+        getBtnText.textContent = 'Processing...';
+        urlInput.disabled = true;
+      } else {
+        getBtn.disabled = false;
+        getBtnSpinner.style.display = 'none';
+        getBtnText.textContent = 'Get Video';
+        urlInput.disabled = false;
+      }
+    }
+
+    // Toggle Aspect Ratio
+    btnAspectOriginal.addEventListener('click', () => {
+      isVerticalMode = false;
+      btnAspectOriginal.classList.add('active');
+      btnAspectVertical.classList.remove('active');
+    });
+
+    btnAspectVertical.addEventListener('click', () => {
+      isVerticalMode = true;
+      btnAspectVertical.classList.add('active');
+      btnAspectOriginal.classList.remove('active');
+    });
+
+    // Form Submit: Get Video Info
+    urlForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+      resetProgressUI();
+      previewCard.classList.remove('active');
+      clipsSection.classList.remove('active');
+      clipsGrid.innerHTML = '';
+      currentVideoData = null;
+
+      const url = urlInput.value.trim();
+      if (!url) {
+        showError('Please paste a video URL.');
+        return;
+      }
+
+      setGetLoading(true);
+
+      try {
+        const res = await fetch('/api/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+
+        const data = await res.json();
+
+        if (res.status === 401) {
+          authOverlay.classList.add('active');
+          throw new Error('Authentication required.');
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to process video.');
+        }
+
+        currentVideoData = data;
+
+        previewTitle.textContent = data.title;
+        previewUploader.textContent = data.uploader ? `Channel: ${data.uploader}` : '';
+
+        if (data.thumbnail) {
+          previewThumbnail.src = data.thumbnail;
+          previewThumbnail.style.display = 'block';
+        } else {
+          previewThumbnail.style.display = 'none';
+        }
+
+        if (data.duration) {
+          previewDuration.textContent = data.duration;
+          previewDuration.style.display = 'inline-block';
+        } else {
+          previewDuration.style.display = 'none';
+        }
+
+        // Populate genuine available qualities
+        qualitySelect.innerHTML = '';
+        if (Array.isArray(data.qualities) && data.qualities.length > 0) {
+          data.qualities.forEach(q => {
+            const opt = document.createElement('option');
+            opt.value = q.value;
+            opt.textContent = q.label;
+            qualitySelect.appendChild(opt);
+          });
+        } else {
+          const opt = document.createElement('option');
+          opt.value = 'best';
+          opt.textContent = 'Best Quality';
+          qualitySelect.appendChild(opt);
+        }
+
+        downloadBtn.disabled = false;
+        downloadBtnSpinner.style.display = 'none';
+        downloadBtnText.textContent = 'Download Video';
+
+        createClipsBtn.disabled = false;
+        createClipsSpinner.style.display = 'none';
+        createClipsText.textContent = '✨ Create Viral Clips';
+
+        previewCard.classList.add('active');
+      } catch (err) {
+        showError(err.message && !err.message.includes('object') && err.message.length < 100 ? err.message : 'Unable to process this URL.');
+      } finally {
+        setGetLoading(false);
+      }
+    });
+
+    // Download Video Click
+    downloadBtn.addEventListener('click', () => {
+      if (!currentVideoData || !currentVideoData.url) return;
+
+      clearError();
+      resetProgressUI();
+
+      const selectedQuality = qualitySelect.value || 'best';
+
+      downloadBtn.disabled = true;
+      downloadBtnSpinner.style.display = 'inline-block';
+      downloadBtnText.textContent = 'Preparing video...';
+
+      progressBox.style.display = 'block';
+      progressStage.textContent = 'Preparing video...';
+      progressPercent.textContent = '0%';
+      progressBar.style.width = '0%';
+      progressBytes.textContent = 'Initializing media streams...';
+      progressNetwork.textContent = '';
+
+      const sseUrl = `/api/prepare-stream?url=${encodeURIComponent(currentVideoData.url)}&title=${encodeURIComponent(currentVideoData.title || '')}&quality=${encodeURIComponent(selectedQuality)}`;
+      activeEventSource = new EventSource(sseUrl);
+
+      activeEventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+
+          if (data.stage === 'preparing') {
+            downloadBtnText.textContent = 'Preparing video...';
+            progressStage.textContent = 'Preparing video...';
+            progressBytes.textContent = 'Initializing media streams...';
+          } else if (data.stage === 'downloading') {
+            const pct = data.percent !== undefined ? data.percent : 0;
+            downloadBtnText.textContent = `Downloading ${pct}%`;
+            progressStage.textContent = 'Downloading video...';
+            progressPercent.textContent = `${pct}%`;
+            progressBar.style.width = `${pct}%`;
+
+            // Real MB/GB stats
+            if (data.downloaded && data.totalSize) {
+              progressBytes.textContent = `${data.downloaded} / ${data.totalSize}`;
+            } else if (data.totalSize) {
+              progressBytes.textContent = `Total: ${data.totalSize}`;
+            } else {
+              progressBytes.textContent = 'Calculating size...';
+            }
+
+            // Real Speed & ETA
+            const parts = [];
+            if (data.speed) parts.push(`Speed: ${data.speed}`);
+            if (data.eta) parts.push(`ETA: ${data.eta}`);
+            progressNetwork.textContent = parts.join(' | ');
+
+          } else if (data.stage === 'merging') {
+            downloadBtnText.textContent = 'Merging video + audio...';
+            progressStage.textContent = 'Merging video + audio...';
+            progressBytes.textContent = data.detail || 'Merging with FFmpeg...';
+            progressNetwork.textContent = '';
+          } else if (data.stage === 'validating') {
+            downloadBtnText.textContent = 'Validating video...';
+            progressStage.textContent = 'Validating video...';
+            progressBytes.textContent = data.detail || 'Verifying video streams...';
+            progressNetwork.textContent = '';
+          } else if (data.stage === 'ready') {
+            if (activeEventSource) {
+              activeEventSource.close();
+              activeEventSource = null;
+            }
+
+            downloadBtnText.textContent = 'Complete';
+            downloadBtnSpinner.style.display = 'none';
+
+            progressStage.textContent = 'Complete';
+            progressPercent.textContent = '100%';
+            progressBar.style.width = '100%';
+            progressBytes.textContent = '✔ Download ready! Starting browser transfer...';
+            progressNetwork.textContent = '';
+
+            // Trigger file download
+            const fileUrl = `/api/file/${encodeURIComponent(data.downloadToken)}`;
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = data.filename || 'video.mp4';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            setTimeout(() => {
+              downloadBtn.disabled = false;
+              downloadBtnText.textContent = 'Download Video';
+            }, 4000);
+          } else if (data.stage === 'error') {
+            if (activeEventSource) {
+              activeEventSource.close();
+              activeEventSource = null;
+            }
+            progressBox.style.display = 'none';
+            downloadBtn.disabled = false;
+            downloadBtnSpinner.style.display = 'none';
+            downloadBtnText.textContent = 'Download Video';
+            showError(data.error || 'Unable to prepare this video.');
+          }
+        } catch (_) {}
+      };
+
+      activeEventSource.onerror = () => {
+        if (activeEventSource) {
+          activeEventSource.close();
+          activeEventSource = null;
+        }
+        progressBox.style.display = 'none';
+        downloadBtn.disabled = false;
+        downloadBtnSpinner.style.display = 'none';
+        downloadBtnText.textContent = 'Download Video';
+        showError('Unable to prepare this video. Please try again.');
+      };
+    });
+
+    // Create Viral Clips Click
+    createClipsBtn.addEventListener('click', async () => {
+      if (!currentVideoData || !currentVideoData.url) return;
+
+      clearError();
+      createClipsBtn.disabled = true;
+      createClipsSpinner.style.display = 'inline-block';
+      createClipsText.textContent = 'Analyzing video & generating clips...';
+      clipsSection.classList.remove('active');
+      clipsGrid.innerHTML = '';
+
+      try {
+        const res = await fetch('/api/clips/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: currentVideoData.url,
+            title: currentVideoData.title,
+            isVertical: isVerticalMode
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.status === 401) {
+          authOverlay.classList.add('active');
+          throw new Error('Authentication required.');
+        }
+
+        if (!res.ok || !data.success || !Array.isArray(data.clips)) {
+          throw new Error(data.error || 'Failed to generate viral clips.');
+        }
+
+        // Render generated clips
+        clipsGrid.innerHTML = '';
+        data.clips.forEach(clip => {
+          const card = document.createElement('div');
+          card.className = 'clip-card';
+          card.innerHTML = `
+            <div class="clip-header">
+              <span class="clip-badge">Clip #${clip.index}</span>
+              <span class="clip-score">🔥 Viral Score: ${clip.viralScore}/100</span>
+            </div>
+            <div class="clip-hook">"${clip.title}"</div>
+            <div class="clip-meta">
+              <span>⏱ Duration: ${clip.duration}</span>
+              <span>📍 ${clip.start} - ${clip.end}</span>
+              <span>📐 ${clip.aspectRatio}</span>
+            </div>
+            <video class="clip-video" controls preload="metadata" src="${clip.previewUrl}"></video>
+            <div class="clip-actions">
+              <a href="${clip.downloadUrl}" download="clip_${clip.index}.mp4" class="btn btn-clip-dl">
+                ⬇ Download Clip
+              </a>
+            </div>
+          `;
+          clipsGrid.appendChild(card);
+        });
+
+        clipsSection.classList.add('active');
+      } catch (err) {
+        showError(err.message || 'Could not generate clips from this video.');
+      } finally {
+        createClipsBtn.disabled = false;
+        createClipsSpinner.style.display = 'none';
+        createClipsText.textContent = '✨ Create Viral Clips';
+      }
+    });
+
+    // Reset Button Click
+    resetBtn.addEventListener('click', () => {
+      resetProgressUI();
+      previewCard.classList.remove('active');
+      clipsSection.classList.remove('active');
+      clipsGrid.innerHTML = '';
+      clearError();
+      urlInput.value = '';
+      urlInput.focus();
+      currentVideoData = null;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "antigravity-video-downloader",
+  "version": "1.0.0",
+  "description": "Minimal, robust single-page video downloader MVP powered by Express and yt-dlp",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/security-tests.js"
+  },
+  "keywords": [
+    "video-downloader",
+    "yt-dlp",
+    "express"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ffmpeg-static": "^5.3.0"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+package-lock.json
+*.log
+*.part
+*.webm
+*.mp4
+.env
