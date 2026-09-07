@@ -14,6 +14,9 @@ const createAuthRouter = require('./auth/routes');
 
 const app = express();
 
+// Trust reverse proxy (required for Render / cloud deployments behind SSL termination proxies)
+app.set('trust proxy', 1);
+
 // Disable x-powered-by header
 app.disable('x-powered-by');
 
@@ -49,10 +52,11 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust reverse proxy for secure cookie setting
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax', // 'lax' permits top-level navigation redirects while remaining secure
     // NO maxAge / expires → browser-session cookie → destroyed on browser close
   },
 }));
