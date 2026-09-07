@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Login — Antigravity Video Downloader</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.92);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --radius-lg: 16px;
+      --radius-md: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(at 0% 0%, rgba(99,102,241,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16,185,129,0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .container { width: 100%; max-width: 420px; }
+    .header { text-align: center; margin-bottom: 28px; }
+    .logo-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 9999px;
+      background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.35);
+      color: #fbbf24; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.03em; margin-bottom: 14px;
+    }
+    .title { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: 28px 24px; backdrop-filter: blur(16px); box-shadow: 0 20px 40px -15px rgba(0,0,0,0.5); }
+    .field-group { display: flex; flex-direction: column; gap: 14px; }
+    .field-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+    .input-field {
+      width: 100%; background: rgba(10,14,23,0.85); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-md); color: #fff; font-size: 0.95rem; padding: 13px 16px; outline: none; transition: all 0.2s ease;
+    }
+    .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 14px 20px; border-radius: var(--radius-md); font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; border: none; transition: all 0.2s ease; color: #fff; background: var(--primary); margin-top: 6px;
+    }
+    .btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .alert { display: none; align-items: flex-start; gap: 10px; padding: 13px 15px; background: var(--danger-bg); border: 1px solid rgba(239,68,68,0.25); border-radius: var(--radius-md); color: #fca5a5; font-size: 0.88rem; line-height: 1.4; margin-top: 14px; }
+    .alert.active { display: flex; }
+    .footer { text-align: center; margin-top: 22px; font-size: 0.78rem; color: #4b5563; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-badge">🔒 Private Access</div>
+      <h1 class="title">Video Downloader</h1>
+      <p class="subtitle">Sign in to access the downloader.</p>
+    </div>
+    <div class="card">
+      <form id="loginForm" class="field-group" autocomplete="off">
+        <div>
+          <label class="field-label" for="emailInput">Email Address</label>
+          <input id="emailInput" type="email" class="input-field" placeholder="you@example.com" required autocomplete="username" />
+        </div>
+        <div>
+          <label class="field-label" for="passwordInput">Password</label>
+          <input id="passwordInput" type="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button id="loginBtn" type="submit" class="btn">
+          <span id="loginSpinner" class="spinner" style="display:none;"></span>
+          <span id="loginBtnText">Sign In</span>
+        </button>
+      </form>
+      <div id="loginError" class="alert"><span>⚠️</span><span id="loginErrorMsg">Invalid credentials.</span></div>
+    </div>
+    <div class="footer">Private deployment · Authentication required for access</div>
+  </div>
+
+  <script>
+    // If already authenticated, redirect to correct page
+    (async () => {
+      try {
+        const r = await fetch('/api/auth/me', { credentials: 'include' });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.authenticated) {
+            window.location.replace(d.role === 'admin' ? '/admin' : '/user');
+          }
+        }
+      } catch (_) {}
+    })();
+
+    const loginForm    = document.getElementById('loginForm');
+    const emailInput   = document.getElementById('emailInput');
+    const passwordInput= document.getElementById('passwordInput');
+    const loginBtn     = document.getElementById('loginBtn');
+    const loginBtnText = document.getElementById('loginBtnText');
+    const loginSpinner = document.getElementById('loginSpinner');
+    const loginError   = document.getElementById('loginError');
+    const loginErrorMsg= document.getElementById('loginErrorMsg');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.classList.remove('active');
+      loginBtn.disabled = true;
+      loginSpinner.style.display = 'inline-block';
+      loginBtnText.textContent = 'Signing in...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: emailInput.value.trim(), password: passwordInput.value }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.authenticated) {
+          throw new Error(data.error || 'Invalid email or password.');
+        }
+        // Redirect based on role
+        window.location.replace(data.role === 'admin' ? '/admin' : '/user');
+      } catch (err) {
+        loginErrorMsg.textContent = err.message;
+        loginError.classList.add('active');
+        passwordInput.value = '';
+        passwordInput.focus();
+      } finally {
+        loginBtn.disabled = false;
+        loginSpinner.style.display = 'none';
+        loginBtnText.textContent = 'Sign In';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Admin Panel — Antigravity</title>
+  <style>
+    :root {
+      --bg: #090d16; --sidebar-bg: rgba(12,18,32,0.98); --card-bg: rgba(18,24,38,0.92);
+      --card-border: rgba(255,255,255,0.08); --text-main: #f3f4f6; --text-muted: #9ca3af;
+      --primary: #6366f1; --primary-hover: #4f46e5; --success: #10b981; --danger: #ef4444;
+      --danger-bg: rgba(239,68,68,0.12); --warning: #f59e0b; --radius-md: 10px; --radius-lg:16px;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+    body { background:var(--bg); color:var(--text-main); min-height:100vh; display:flex; }
+
+    /* Sidebar */
+    .sidebar { width:220px; min-height:100vh; background:var(--sidebar-bg); border-right:1px solid var(--card-border); display:flex; flex-direction:column; padding:24px 0; flex-shrink:0; }
+    .sidebar-brand { padding:0 20px 24px; border-bottom:1px solid var(--card-border); }
+    .sidebar-brand .badge { display:inline-block; padding:3px 9px; border-radius:9999px; background:rgba(99,102,241,0.18); color:#a5b4fc; font-size:0.72rem; font-weight:700; margin-bottom:8px; }
+    .sidebar-brand h2 { font-size:1.05rem; font-weight:800; color:#fff; }
+    .sidebar-brand .role-badge { font-size:0.75rem; color:var(--warning); font-weight:600; margin-top:3px; }
+    .nav { flex:1; padding:16px 0; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:11px 20px; color:var(--text-muted); font-size:0.9rem; font-weight:500; cursor:pointer; border:none; background:none; width:100%; text-align:left; transition:all 0.15s; text-decoration:none; }
+    .nav-item:hover { background:rgba(255,255,255,0.05); color:#fff; }
+    .nav-item.active { background:rgba(99,102,241,0.15); color:#a5b4fc; border-right:2px solid var(--primary); }
+    .nav-item .icon { width:18px; text-align:center; }
+    .sidebar-footer { padding:16px 20px; border-top:1px solid var(--card-border); }
+    .logout-btn { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:var(--radius-md); background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.2); width:100%; cursor:pointer; font-size:0.88rem; font-weight:600; transition:all 0.2s; }
+    .logout-btn:hover { background:rgba(239,68,68,0.2); }
+
+    /* Main */
+    .main { flex:1; display:flex; flex-direction:column; overflow:auto; }
+    .topbar { padding:20px 28px; border-bottom:1px solid var(--card-border); display:flex; justify-content:space-between; align-items:center; }
+    .topbar h1 { font-size:1.25rem; font-weight:700; }
+    .topbar .email-badge { font-size:0.82rem; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:5px 12px; border-radius:9999px; }
+    .content { padding:28px; flex:1; }
+
+    /* Section panels */
+    .panel { display:none; }
+    .panel.active { display:block; }
+
+    /* Stats row */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px; }
+    .stat-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:20px; }
+    .stat-label { font-size:0.78rem; color:var(--text-muted); margin-bottom:8px; }
+    .stat-value { font-size:2rem; font-weight:800; }
+
+    /* Card */
+    .card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px; }
+    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .card-header h2 { font-size:1rem; font-weight:700; }
+
+    /* Table */
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+    th { text-align:left; padding:10px 12px; color:var(--text-muted); font-size:0.78rem; font-weight:600; text-transform:uppercase; border-bottom:1px solid var(--card-border); }
+    td { padding:12px 12px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    .badge-role { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700; }
+    .badge-admin { background:rgba(99,102,241,0.2); color:#a5b4fc; }
+    .badge-user  { background:rgba(16,185,129,0.15); color:#6ee7b7; }
+    .badge-status { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700; }
+    .badge-active   { background:rgba(16,185,129,0.15); color:#6ee7b7; }
+    .badge-inactive { background:rgba(239,68,68,0.15); color:#f87171; }
+    .action-btns { display:flex; gap:6px; flex-wrap:wrap; }
+    .btn-xs { padding:5px 10px; border-radius:6px; font-size:0.78rem; font-weight:600; cursor:pointer; border:none; color:#fff; transition:all 0.15s; }
+    .btn-xs-primary { background:var(--primary); } .btn-xs-primary:hover { background:var(--primary-hover); }
+    .btn-xs-warn    { background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.3); } .btn-xs-warn:hover { background:rgba(245,158,11,0.35); }
+    .btn-xs-danger  { background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.25); } .btn-xs-danger:hover { background:rgba(239,68,68,0.3); }
+    .btn-xs-success { background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.25); } .btn-xs-success:hover { background:rgba(16,185,129,0.3); }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 18px; border-radius:var(--radius-md); font-size:0.9rem; font-weight:600; cursor:pointer; border:none; color:#fff; background:var(--primary); transition:all 0.2s; }
+    .btn:hover:not(:disabled) { background:var(--primary-hover); }
+    .btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .btn-danger { background:rgba(239,68,68,0.8); } .btn-danger:hover:not(:disabled) { background:var(--danger); }
+
+    /* Form fields */
+    .form-group { display:flex; flex-direction:column; gap:5px; margin-bottom:16px; }
+    .form-label { font-size:0.82rem; font-weight:600; color:var(--text-muted); }
+    .input-field { background:rgba(10,14,23,0.85); border:1px solid rgba(255,255,255,0.12); border-radius:var(--radius-md); color:#fff; font-size:0.92rem; padding:11px 14px; outline:none; transition:all 0.2s; width:100%; }
+    .input-field:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(99,102,241,0.25); }
+    select.input-field { cursor:pointer; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+    /* Alerts */
+    .alert { display:none; padding:12px 14px; border-radius:var(--radius-md); font-size:0.88rem; margin-top:12px; }
+    .alert.active { display:block; }
+    .alert-error { background:var(--danger-bg); border:1px solid rgba(239,68,68,0.25); color:#fca5a5; }
+    .alert-success { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#6ee7b7; }
+
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(9,13,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.active { display:flex; }
+    .modal { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:28px; width:100%; max-width:440px; }
+    .modal h3 { font-size:1.1rem; font-weight:700; margin-bottom:20px; }
+    .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+    .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @media(max-width:640px) { .sidebar{display:none;} .form-row{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="badge">ADMIN</div>
+      <h2>Control Panel</h2>
+      <div class="role-badge" id="adminEmailBadge">Loading...</div>
+    </div>
+    <div class="nav">
+      <button class="nav-item active" onclick="showPanel('dashboard')"><span class="icon">📊</span>Dashboard</button>
+      <button class="nav-item" onclick="showPanel('users')"><span class="icon">👥</span>Users</button>
+      <button class="nav-item" onclick="showPanel('settings')"><span class="icon">⚙️</span>Account Settings</button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <!-- Main area -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="panelTitle">Dashboard</h1>
+      <span class="email-badge" id="topbarEmail">—</span>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD PANEL -->
+      <div id="panelDashboard" class="panel active">
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="statTotal">—</div></div>
+          <div class="stat-card"><div class="stat-label">Active Users</div><div class="stat-value" id="statActive">—</div></div>
+          <div class="stat-card"><div class="stat-label">Admins</div><div class="stat-value" id="statAdmins">—</div></div>
+        </div>
+        <div class="card">
+          <p style="color:var(--text-muted);font-size:0.9rem;">Welcome to the admin panel. Use <strong style="color:#fff;">Users</strong> to manage accounts and <strong style="color:#fff;">Account Settings</strong> to update your credentials.</p>
+        </div>
+      </div>
+
+      <!-- USERS PANEL -->
+      <div id="panelUsers" class="panel">
+        <div class="card">
+          <div class="card-header">
+            <h2>User Management</h2>
+            <button class="btn" onclick="openAddUser()">+ Add User</button>
+          </div>
+          <div class="table-wrap">
+            <table id="usersTable">
+              <thead>
+                <tr>
+                  <th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"><tr><td colspan="5" style="color:var(--text-muted);text-align:center;">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div id="usersAlert" class="alert alert-error"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS PANEL -->
+      <div id="panelSettings" class="panel">
+        <div class="card" style="max-width:500px;">
+          <h2 style="margin-bottom:20px;">Account Settings</h2>
+          <div class="form-group">
+            <label class="form-label">Current Email</label>
+            <input id="settCurrentEmail" class="input-field" type="text" disabled />
+          </div>
+          <form id="settingsForm">
+            <div class="form-group">
+              <label class="form-label">New Email (leave blank to keep current)</label>
+              <input id="settNewEmail" class="input-field" type="email" placeholder="new@example.com" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password (leave blank to keep current)</label>
+              <input id="settNewPassword" class="input-field" type="password" placeholder="New password" autocomplete="new-password" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm New Password</label>
+              <input id="settConfirmPassword" class="input-field" type="password" placeholder="Confirm new password" autocomplete="new-password" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Current Password (required)</label>
+              <input id="settCurrentPassword" class="input-field" type="password" placeholder="Your current password" autocomplete="current-password" required />
+            </div>
+            <button type="submit" class="btn" id="settBtn"><span id="settSpinner" class="spinner" style="display:none;"></span><span id="settBtnText">Save Changes</span></button>
+          </form>
+          <div id="settAlert" class="alert"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div id="addUserModal" class="modal-overlay">
+    <div class="modal">
+      <h3>Add New User</h3>
+      <form id="addUserForm">
+        <div class="form-group"><label class="form-label">Email</label><input id="addEmail" class="input-field" type="email" placeholder="user@example.com" required /></div>
+        <div class="form-group"><label class="form-label">Password</label><input id="addPassword" class="input-field" type="password" placeholder="Min 8 chars, upper+lower+digit+special" required /></div>
+        <div class="form-group"><label class="form-label">Role</label>
+          <select id="addRole" class="input-field"><option value="user">User</option><option value="admin">Admin</option></select>
+        </div>
+        <div id="addUserAlert" class="alert alert-error"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="closeAddUser()">Cancel</button>
+          <button type="submit" class="btn" id="addUserBtn"><span id="addUserSpinner" class="spinner" style="display:none;"></span><span id="addUserBtnText">Create User</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div id="changePwModal" class="modal-overlay">
+    <div class="modal">
+      <h3>Change User Password</h3>
+      <form id="changePwForm">
+        <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">User: <strong id="changePwEmail" style="color:#fff;"></strong></p>
+        <div class="form-group"><label class="form-label">New Password</label><input id="changePwNew" class="input-field" type="password" placeholder="Min 8 chars, upper+lower+digit+special" required /></div>
+        <div id="changePwAlert" class="alert alert-error"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="closeChangePw()">Cancel</button>
+          <button type="submit" class="btn" id="changePwBtn">Set Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentAdmin = null;
+    let changePwUserId = null;
+
+    async function apiJson(url, method = 'GET', body = null) {
+      const opts = { method, credentials: 'include', headers: {} };
+      if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+      const r = await fetch(url, opts);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Request failed');
+      return d;
+    }
+
+    async function init() {
+      try {
+        const me = await apiJson('/api/auth/me');
+        if (!me.authenticated || me.role !== 'admin') { window.location.replace('/login'); return; }
+        currentAdmin = me;
+        document.getElementById('adminEmailBadge').textContent = me.email;
+        document.getElementById('topbarEmail').textContent = me.email;
+        document.getElementById('settCurrentEmail').value = me.email;
+        await loadStats();
+      } catch (_) { window.location.replace('/login'); }
+    }
+
+    async function loadStats() {
+      try {
+        const d = await apiJson('/admin/api/users');
+        const users = d.users || [];
+        document.getElementById('statTotal').textContent = users.length;
+        document.getElementById('statActive').textContent = users.filter(u => u.is_active).length;
+        document.getElementById('statAdmins').textContent = users.filter(u => u.role === 'admin').length;
+      } catch(_) {}
+    }
+
+    async function loadUsers() {
+      const tbody = document.getElementById('usersBody');
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;">Loading...</td></tr>';
+      try {
+        const d = await apiJson('/admin/api/users');
+        tbody.innerHTML = '';
+        (d.users || []).forEach(u => {
+          const tr = document.createElement('tr');
+          const created = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+          tr.innerHTML = `
+            <td>${escHtml(u.email)}</td>
+            <td><span class="badge-role ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role}</span></td>
+            <td><span class="badge-status ${u.is_active?'badge-active':'badge-inactive'}">${u.is_active?'Active':'Disabled'}</span></td>
+            <td>${created}</td>
+            <td>
+              <div class="action-btns">
+                <button class="btn-xs btn-xs-primary" onclick="openChangePw('${u.id}','${escHtml(u.email)}')">Password</button>
+                ${u.is_active
+                  ? `<button class="btn-xs btn-xs-warn" onclick="toggleStatus('${u.id}',false)">Disable</button>`
+                  : `<button class="btn-xs btn-xs-success" onclick="toggleStatus('${u.id}',true)">Enable</button>`}
+                <button class="btn-xs btn-xs-danger" onclick="deleteUser('${u.id}','${escHtml(u.email)}')">Delete</button>
+              </div>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        document.getElementById('usersAlert').textContent = e.message;
+        document.getElementById('usersAlert').classList.add('active');
+      }
+    }
+
+    function showPanel(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+      document.querySelectorAll('.nav-item')[{dashboard:0,users:1,settings:2}[name]].classList.add('active');
+      const titles = { dashboard:'Dashboard', users:'User Management', settings:'Account Settings' };
+      document.getElementById('panelTitle').textContent = titles[name];
+      if (name === 'users') loadUsers();
+      if (name === 'settings') { document.getElementById('settCurrentEmail').value = currentAdmin?.email || ''; }
+    }
+
+    function openAddUser() { document.getElementById('addUserModal').classList.add('active'); document.getElementById('addEmail').focus(); }
+    function closeAddUser() { document.getElementById('addUserModal').classList.remove('active'); document.getElementById('addUserForm').reset(); document.getElementById('addUserAlert').classList.remove('active'); }
+
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('addUserBtn');
+      const spinner = document.getElementById('addUserSpinner');
+      const alert = document.getElementById('addUserAlert');
+      alert.classList.remove('active');
+      btn.disabled = true; spinner.style.display = 'inline-block';
+      try {
+        await apiJson('/admin/api/users', 'POST', { email: document.getElementById('addEmail').value.trim(), password: document.getElementById('addPassword').value, role: document.getElementById('addRole').value });
+        closeAddUser();
+        loadUsers(); loadStats();
+      } catch (err) { alert.textContent = err.message; alert.classList.add('active'); }
+      finally { btn.disabled = false; spinner.style.display = 'none'; }
+    });
+
+    function openChangePw(id, email) { changePwUserId = id; document.getElementById('changePwEmail').textContent = email; document.getElementById('changePwModal').classList.add('active'); document.getElementById('changePwNew').focus(); }
+    function closeChangePw() { document.getElementById('changePwModal').classList.remove('active'); document.getElementById('changePwForm').reset(); document.getElementById('changePwAlert').classList.remove('active'); }
+
+    document.getElementById('changePwForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alert = document.getElementById('changePwAlert');
+      alert.classList.remove('active');
+      document.getElementById('changePwBtn').disabled = true;
+      try {
+        await apiJson(`/admin/api/users/${changePwUserId}/password`, 'PUT', { password: document.getElementById('changePwNew').value });
+        closeChangePw();
+        showToast('Password updated successfully.');
+      } catch (err) { alert.textContent = err.message; alert.classList.add('active'); }
+      finally { document.getElementById('changePwBtn').disabled = false; }
+    });
+
+    async function toggleStatus(id, enable) {
+      try {
+        await apiJson(`/admin/api/users/${id}/status`, 'PUT', { is_active: enable });
+        loadUsers(); loadStats();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function deleteUser(id, email) {
+      if (!confirm(`Delete user "${email}"? This cannot be undone.`)) return;
+      try { await apiJson(`/admin/api/users/${id}`, 'DELETE'); loadUsers(); loadStats(); }
+      catch (e) { alert(e.message); }
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('settBtn');
+      const alert = document.getElementById('settAlert');
+      alert.className = 'alert';
+      btn.disabled = true; document.getElementById('settSpinner').style.display = 'inline-block';
+      try {
+        const body = {
+          currentPassword: document.getElementById('settCurrentPassword').value,
+          newEmail:        document.getElementById('settNewEmail').value.trim() || undefined,
+          newPassword:     document.getElementById('settNewPassword').value || undefined,
+          confirmPassword: document.getElementById('settConfirmPassword').value || undefined,
+        };
+        const d = await apiJson('/admin/api/settings', 'PUT', body);
+        if (d.sessionInvalidated) { alert.textContent = 'Password changed. Redirecting to login...'; alert.classList.add('active','alert-success'); setTimeout(() => window.location.replace('/login'), 1500); }
+        else { alert.textContent = 'Settings saved.'; alert.classList.add('active','alert-success'); document.getElementById('settCurrentEmail').value = document.getElementById('settNewEmail').value || currentAdmin.email; }
+      } catch (err) { alert.textContent = err.message; alert.classList.add('active','alert-error'); }
+      finally { btn.disabled = false; document.getElementById('settSpinner').style.display = 'none'; document.getElementById('settCurrentPassword').value = ''; }
+    });
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method:'POST', credentials:'include' });
+      window.location.replace('/login');
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function showToast(msg) { const d = document.createElement('div'); d.style.cssText='position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;z-index:9999;'; d.textContent = msg; document.body.appendChild(d); setTimeout(() => d.remove(), 3000); }
+
+    init();
+  </script>
+</body>
+</html>

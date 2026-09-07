@@ -128,23 +128,28 @@ async function runFeatureTests() {
   const SAMPLE_URL = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
 
   // TEST O: Unauthenticated Access & Private Password Protection
-  console.log('\n--- TEST O: Unauthenticated Access & Password Verification ---');
+  console.log('\n--- TEST O: Unauthenticated Access & Credential Verification ---');
   // 1. Unauthenticated request to /api/info with x-test-enforce-auth
   const unauthRes = await request('POST', '/api/info', { url: SAMPLE_URL }, { 'x-test-enforce-auth': 'true' });
   assert('Unauthenticated visitor blocked with HTTP 401', unauthRes.statusCode === 401 && unauthRes.json?.error);
 
-  // 2. Wrong password attempt
-  const wrongPassRes = await request('POST', '/api/auth/login', { password: 'wrong-password-123' });
-  assert('Wrong password blocked with HTTP 401', wrongPassRes.statusCode === 401);
+  // 2. Wrong credentials attempt
+  const wrongPassRes = await request('POST', '/api/auth/login', { email: 'wrong@wrong.com', password: 'wrong-password-123' });
+  assert('Wrong credentials blocked with HTTP 401', wrongPassRes.statusCode === 401);
 
-  // 3. Correct password attempt
-  const correctPassRes = await request('POST', '/api/auth/login', { password: process.env.APP_PASSWORD || 'antigravity2026' });
-  assert('Correct password unlocks with HTTP 200 and session token', correctPassRes.statusCode === 200 && correctPassRes.json?.token);
-  const authToken = correctPassRes.json?.token;
-  const authHeaders = { 'x-app-auth': authToken };
+  // 3. Correct admin credentials
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@test.local';
+  const adminPass  = process.env.ADMIN_PASSWORD || 'Admin@123456';
+  const correctPassRes = await request('POST', '/api/auth/login', { email: adminEmail, password: adminPass });
+  assert('Correct credentials login with HTTP 200 and role', correctPassRes.statusCode === 200 && correctPassRes.json?.role === 'admin');
+
+  // Extract session cookie for subsequent authenticated requests
+  const setCookieHeader = correctPassRes.headers?.['set-cookie'] || [];
+  const sessionCookie = setCookieHeader.map(c => c.split(';')[0]).join('; ');
+  const authHeaders = sessionCookie ? { 'Cookie': sessionCookie } : {};
 
   // 4. Authenticated request succeeds
-  const authInfoRes = await request('POST', '/api/info', { url: SAMPLE_URL }, authHeaders);
+  const authInfoRes = await request('POST', '/api/info', { url: SAMPLE_URL }, { ...authHeaders, 'x-test-enforce-auth': 'true' });
   assert('Authenticated request succeeds with HTTP 200', authInfoRes.statusCode === 200 && authInfoRes.json?.success);
 
   // TEST P: Malicious / Internal URL rejection on clips endpoint

@@ -6,7 +6,11 @@ const dns = require('dns');
 const crypto = require('crypto');
 const { spawn, spawnSync } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
+const session = require('express-session');
 const viralClipsEngine = require('./viralClipsEngine');
+const authDb = require('./auth/db');
+const { requireAuth, requireAdmin, requireUser } = require('./auth/middleware');
+const createAuthRouter = require('./auth/routes');
 
 const app = express();
 
@@ -32,10 +36,31 @@ app.use((req, res, next) => {
 // JSON parser with strict limit
 app.use(express.json({ limit: '10kb' }));
 
-// Serve static assets from public folder
+// Session middleware – browser-session cookie (no maxAge = destroyed when browser closes)
+// SESSION_SECRET must be set in production; fail loudly if missing
+const SESSION_SECRET = process.env.SESSION_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { console.error('FATAL: SESSION_SECRET environment variable is not set.'); process.exit(1); })()
+    : 'dev-insecure-secret-do-not-use-in-prod'
+);
+
+app.use(session({
+  name: 'sid',
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    // NO maxAge / expires → browser-session cookie → destroyed on browser close
+  },
+}));
+
+// Serve static assets from public folder (no auto-index: root handled explicitly below)
 app.use(express.static(path.join(__dirname, 'public'), {
   dotfiles: 'ignore',
-  index: 'index.html',
+  index: false,   // root "/" is handled by the explicit route below
   maxAge: '1h'
 }));
 
@@ -149,80 +174,56 @@ let activeDownloads = 0;
 const MAX_CONCURRENT_DOWNLOADS = 8;
 
 // =========================================================================
-// PRIVATE ACCESS & AUTHENTICATION
+// AUTHENTICATION  (role-based: ADMIN / USER, replaces old APP_PASSWORD system)
 // =========================================================================
-const APP_PASSWORD = process.env.APP_PASSWORD || 'antigravity2026';
-const authenticatedSessions = new Set();
 
-function extractToken(req) {
-  if (req.headers['x-app-auth']) return req.headers['x-app-auth'];
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    return req.headers.authorization.slice(7).trim();
+// Mount auth API routes (login, logout, me, status, user/admin CRUD)
+app.use('/', createAuthRouter(rateLimiter));
+
+// ── Page routes (serve HTML pages with auth guards) ──────────────────────
+
+// Root: redirect based on session role
+app.get('/', (req, res) => {
+  if (req.session && req.session.userId) {
+    return res.redirect(req.session.role === 'admin' ? '/admin' : '/user');
   }
-  if (req.headers.cookie) {
-    const match = req.headers.cookie.match(/(?:^|;\s*)app_session=([^;]+)/);
-    if (match) return decodeURIComponent(match[1]);
-  }
-  if (req.query && req.query.auth_token) {
-    return req.query.auth_token;
-  }
-  return null;
-}
-
-function requireAuth(req, res, next) {
-  // Enforce auth in production, or if TEST_REQUIRE_AUTH is set, or if test explicitly requests auth check
-  if (process.env.NODE_ENV === 'test' && !process.env.TEST_REQUIRE_AUTH && !req.headers['x-test-enforce-auth']) {
-    return next();
-  }
-  const token = extractToken(req);
-  if (token && authenticatedSessions.has(token)) {
-    return next();
-  }
-  return res.status(401).json({ error: 'Authentication required. Please enter password to unlock.' });
-}
-
-// Rate limiter for login attempts (5 attempts per minute per IP)
-const authLimiter = rateLimiter(5, 60 * 1000);
-
-// POST /api/auth/login
-app.post('/api/auth/login', authLimiter, (req, res) => {
-  const { password } = req.body || {};
-  if (!password || typeof password !== 'string') {
-    return res.status(400).json({ error: 'Password is required.' });
-  }
-
-  const passBuf = Buffer.from(password);
-  const targetBuf = Buffer.from(APP_PASSWORD);
-  const isMatch = passBuf.length === targetBuf.length && crypto.timingSafeEqual(passBuf, targetBuf);
-
-  if (!isMatch) {
-    return res.status(401).json({ error: 'Incorrect password. Access denied.' });
-  }
-
-  const sessionToken = crypto.randomBytes(32).toString('hex');
-  authenticatedSessions.add(sessionToken);
-
-  res.setHeader('Set-Cookie', `app_session=${sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
-  return res.json({ success: true, token: sessionToken });
+  return res.redirect('/login');
 });
 
-// GET /api/auth/status
-app.get('/api/auth/status', (req, res) => {
-  if (process.env.NODE_ENV === 'test' && !process.env.TEST_REQUIRE_AUTH) {
-    return res.json({ authenticated: true, privateMode: true });
-  }
-  const token = extractToken(req);
-  const authenticated = !!(token && authenticatedSessions.has(token));
-  return res.json({ authenticated, privateMode: true });
+// Login page (public)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// POST /api/auth/logout
-app.post('/api/auth/logout', (req, res) => {
-  const token = extractToken(req);
-  if (token) authenticatedSessions.delete(token);
-  res.setHeader('Set-Cookie', 'app_session=; Path=/; HttpOnly; Max-Age=0');
-  return res.json({ success: true });
+// User downloader page (requires any authenticated session)
+app.get('/user', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'user.html'));
 });
+
+// User settings page
+app.get('/user/settings', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'user-settings.html'));
+});
+
+// Admin panel page (requires admin role)
+app.get('/admin', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Admin sub-pages (catch-all, require admin role)
+app.get('/admin/*', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Logout convenience route (GET)
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('sid');
+    res.redirect('/login');
+  });
+});
+
+
 
 // SSRF IP Validation Helpers
 function ipToLong(ip) {
@@ -350,6 +351,10 @@ function getYtDlpArgs() {
     '--no-playlist',
     '--no-warnings'
   ];
+  const denoPath = path.join(os.homedir(), '.deno', 'bin', 'deno.exe');
+  if (fs.existsSync(denoPath)) {
+    args.push('--js-runtimes', `deno:${denoPath}`);
+  }
   if (activeFFmpegPath && (activeFFmpegPath === 'ffmpeg' || fs.existsSync(activeFFmpegPath))) {
     args.push('--ffmpeg-location', activeFFmpegPath);
   }
@@ -1105,4 +1110,10 @@ function startServer(port) {
   });
 }
 
-startServer(DEFAULT_PORT);
+// Bootstrap admin account from env vars (runs once on first startup)
+authDb.bootstrapAdmin()
+  .then(() => startServer(DEFAULT_PORT))
+  .catch((err) => {
+    console.error('FATAL: Failed to bootstrap admin account:', err.message);
+    process.exit(1);
+  });

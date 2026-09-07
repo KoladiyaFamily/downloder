@@ -4,4 +4,9 @@ package-lock.json
 *.part
 *.webm
 *.mp4
+*.m4a
+*.mkdir
 .env
+.env.*
+data/
+tmp/

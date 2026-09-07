@@ -54,6 +54,9 @@ async function runSecuritySuite() {
   let passed = 0;
   let failed = 0;
 
+  // Reset rate limits before running suite
+  await request('POST', '/api/test-reset-limits');
+
   function assert(name, condition, detail = '') {
     if (condition) {
       console.log(`✔ PASS: ${name}`);
