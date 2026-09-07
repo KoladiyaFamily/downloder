@@ -70,7 +70,7 @@
       <p class="subtitle">Sign in to access the downloader.</p>
     </div>
     <div class="card">
-      <form id="loginForm" class="field-group" autocomplete="off">
+      <form id="loginForm" class="field-group" action="/api/auth/login" method="POST" onsubmit="handleLogin(event); return false;" autocomplete="off">
         <div>
           <label class="field-label" for="emailInput">Email Address</label>
           <input id="emailInput" type="email" class="input-field" placeholder="you@example.com" required autocomplete="username" />
@@ -112,8 +112,15 @@
     const loginError   = document.getElementById('loginError');
     const loginErrorMsg= document.getElementById('loginErrorMsg');
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    async function handleLogin(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) return;
+
       loginError.classList.remove('active');
       loginBtn.disabled = true;
       loginSpinner.style.display = 'inline-block';
@@ -124,13 +131,22 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email: emailInput.value.trim(), password: passwordInput.value }),
+          body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
         if (!res.ok || !data.authenticated) {
           throw new Error(data.error || 'Invalid email or password.');
         }
-        // Redirect based on role
+
+        // Verify session identity with /api/auth/me before redirecting
+        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.authenticated) {
+            window.location.replace(meData.role === 'admin' ? '/admin' : '/user');
+            return;
+          }
+        }
         window.location.replace(data.role === 'admin' ? '/admin' : '/user');
       } catch (err) {
         loginErrorMsg.textContent = err.message;
@@ -142,7 +158,9 @@
         loginSpinner.style.display = 'none';
         loginBtnText.textContent = 'Sign In';
       }
-    });
+    }
+
+    loginForm.addEventListener('submit', handleLogin);
   </script>
 </body>
 </html>
