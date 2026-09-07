@@ -41,32 +41,43 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // STRICT FFMPEG VERIFICATION AT STARTUP
 function verifyFFmpeg() {
-  if (!ffmpegPath || typeof ffmpegPath !== 'string') {
-    console.error('FATAL: FFmpeg binary path could not be resolved.');
-    return { available: false, path: null };
+  if (ffmpegPath && typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) {
+    try {
+      const res = spawnSync(ffmpegPath, ['-version'], { shell: false });
+      if (res.status === 0) {
+        console.log(`✔ FFmpeg VERIFIED: ${ffmpegPath}`);
+        return { available: true, path: ffmpegPath };
+      }
+    } catch (_) {}
   }
 
-  if (!fs.existsSync(ffmpegPath)) {
-    console.error(`FATAL: FFmpeg binary not found at expected path: ${ffmpegPath}`);
-    return { available: false, path: ffmpegPath };
-  }
-
+  // Fallback to system ffmpeg binary
   try {
-    const res = spawnSync(ffmpegPath, ['-version'], { shell: false });
-    if (res.status === 0) {
-      console.log(`✔ FFmpeg VERIFIED: ${ffmpegPath}`);
-      return { available: true, path: ffmpegPath };
+    const sysRes = spawnSync('ffmpeg', ['-version'], { shell: false });
+    if (sysRes.status === 0) {
+      console.log('✔ FFmpeg VERIFIED: system ffmpeg binary');
+      return { available: true, path: 'ffmpeg' };
     }
-    console.error(`FATAL: FFmpeg failed execution test (exit code ${res.status}).`);
-    return { available: false, path: ffmpegPath };
-  } catch (err) {
-    console.error('FATAL: Error executing FFmpeg binary:', err.message);
-    return { available: false, path: ffmpegPath };
-  }
+  } catch (_) {}
+
+  console.error('FATAL: FFmpeg binary could not be found or executed.');
+  return { available: false, path: null };
 }
 
 const ffmpegCheck = verifyFFmpeg();
 const isFFmpegReady = ffmpegCheck.available;
+const activeFFmpegPath = ffmpegCheck.path || ffmpegPath;
+
+// Determine available python command (python vs python3)
+let pythonCmd = 'python';
+try {
+  const pCheck = spawnSync('python', ['--version'], { shell: false });
+  if (pCheck.status !== 0) {
+    pythonCmd = 'python3';
+  }
+} catch (_) {
+  pythonCmd = 'python3';
+}
 
 // Temporary download directory
 const TEMP_DIR = path.join(os.tmpdir(), 'antigravity_video_temp');
@@ -339,8 +350,8 @@ function getYtDlpArgs() {
     '--no-playlist',
     '--no-warnings'
   ];
-  if (ffmpegPath && fs.existsSync(ffmpegPath)) {
-    args.push('--ffmpeg-location', ffmpegPath);
+  if (activeFFmpegPath && (activeFFmpegPath === 'ffmpeg' || fs.existsSync(activeFFmpegPath))) {
+    args.push('--ffmpeg-location', activeFFmpegPath);
   }
   return args;
 }
@@ -348,11 +359,11 @@ function getYtDlpArgs() {
 // Inspect media streams using FFmpeg - MUST verify video and audio
 function inspectMediaStreams(filePath) {
   return new Promise((resolve) => {
-    if (!filePath || !fs.existsSync(filePath) || !ffmpegPath || !fs.existsSync(ffmpegPath)) {
+    if (!filePath || !fs.existsSync(filePath) || !activeFFmpegPath) {
       return resolve({ hasVideo: false, hasAudio: false, container: 'unknown' });
     }
 
-    const proc = spawn(ffmpegPath, ['-i', filePath], { shell: false });
+    const proc = spawn(activeFFmpegPath, ['-i', filePath], { shell: false });
     let stderr = '';
 
     proc.stderr.on('data', (d) => {
@@ -399,7 +410,7 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
   let stdoutData = '';
   let finished = false;
 
-  const proc = spawn('python', args, { shell: false });
+  const proc = spawn(pythonCmd, args, { shell: false });
 
   const timeoutTimer = setTimeout(() => {
     if (!finished) {
@@ -523,7 +534,7 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       cleanUrl
     ];
 
-    const proc = spawn('python', args, { shell: false });
+    const proc = spawn(pythonCmd, args, { shell: false });
     let isTerminated = false;
 
     if (onProcessCreated) {
@@ -1039,6 +1050,9 @@ app.get('/api/clips/:clipId/preview', requireAuth, (req, res) => {
   res.setHeader('Content-Length', clip.size);
   const stream = fs.createReadStream(clip.filePath);
   stream.pipe(res);
+  const cleanStream = () => { try { if (!stream.destroyed) stream.destroy(); } catch (_) {} };
+  res.on('finish', cleanStream);
+  res.on('close', cleanStream);
 });
 
 // GET /api/clips/:clipId/download
@@ -1054,9 +1068,16 @@ app.get('/api/clips/:clipId/download', requireAuth, (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${clip.filename}"`);
   const stream = fs.createReadStream(clip.filePath);
   stream.pipe(res);
+  const cleanStream = () => { try { if (!stream.destroyed) stream.destroy(); } catch (_) {} };
+  res.on('finish', cleanStream);
+  res.on('close', cleanStream);
 });
 
-// Health check endpoint
+// Health check endpoints (Render health check compatibility)
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',

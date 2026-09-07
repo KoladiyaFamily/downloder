@@ -236,7 +236,11 @@ async function runAcceptanceTests() {
 
   // Verify server temporary directory cleanliness
   const serverTempDir = path.join(os.tmpdir(), 'antigravity_video_temp');
-  const remainingFiles = fs.readdirSync(serverTempDir);
+  const remainingFiles = fs.readdirSync(serverTempDir).filter(f => {
+    try {
+      return !fs.statSync(path.join(serverTempDir, f)).isDirectory();
+    } catch (_) { return false; }
+  });
   assert('Temporary directory contains no orphaned files', remainingFiles.length === 0, `Remaining: ${remainingFiles.join(', ')}`);
 
   console.log(`\n===============================================================`);

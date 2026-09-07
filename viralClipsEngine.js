@@ -1,8 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
+
+// Active FFmpeg resolution with system fallback
+let activeFFmpeg = ffmpegPath;
+if (!activeFFmpeg || !fs.existsSync(activeFFmpeg)) {
+  try {
+    const s = spawnSync('ffmpeg', ['-version'], { shell: false });
+    if (s.status === 0) activeFFmpeg = 'ffmpeg';
+  } catch (_) {}
+}
 
 // In-memory registry for generated clips: clipId -> { filePath, filename, contentType, size, createdAt }
 const clipsRegistry = new Map();

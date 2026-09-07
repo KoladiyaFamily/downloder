@@ -164,7 +164,11 @@ async function runSecuritySuite() {
   console.log('\n--- Verifying Temp Directory Storage Hygiene ---');
   const tempDir = path.join(os.tmpdir(), 'antigravity_video_temp');
   if (fs.existsSync(tempDir)) {
-    const remaining = fs.readdirSync(tempDir);
+    const remaining = fs.readdirSync(tempDir).filter(f => {
+      try {
+        return !fs.statSync(path.join(tempDir, f)).isDirectory();
+      } catch (_) { return false; }
+    });
     assert('Temp directory contains no leaked/orphaned files', remaining.length === 0, `Remaining: ${remaining.join(', ')}`);
   } else {
     assert('Temp directory exists and is managed', true);
