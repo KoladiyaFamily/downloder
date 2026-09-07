@@ -23,8 +23,8 @@ RUN npm install --omit=dev
 # Copy application files
 COPY . .
 
-# Ensure temporary directories exist with proper permissions
-RUN mkdir -p /tmp/antigravity_video_temp/clips
+# Ensure data and temporary directories exist with proper permissions
+RUN mkdir -p /data /tmp/antigravity_video_temp/clips
 
 # Expose Render PORT
 ENV PORT=3000
