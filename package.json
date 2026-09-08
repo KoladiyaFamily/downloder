@@ -4,6 +4,7 @@
   "description": "Minimal, robust single-page video downloader MVP powered by Express and yt-dlp",
   "main": "server.js",
   "scripts": {
+    "postinstall": "node scripts/install-yt-dlp.js",
     "start": "node server.js",
     "test": "node test/security-tests.js"
   },

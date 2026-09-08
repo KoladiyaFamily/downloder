@@ -98,26 +98,33 @@ const isFFmpegReady = ffmpegCheck.available;
 const activeFFmpegPath = ffmpegCheck.path || ffmpegPath;
 
 // ─── yt-dlp Python interpreter resolution ──────────────────────────────────
-// Production (Render native / Docker): /opt/venv/bin/python is created by the
-// render.yaml buildCommand (or Dockerfile RUN steps) and is the ONLY interpreter
-// that has yt-dlp installed.  We check it first and use it unconditionally if present.
+// Production (Render native Node / Docker) & Local Development:
+// 1. Project-local venv (.venv/bin/python or .venv/Scripts/python.exe) created by postinstall
+// 2. Container venv (/opt/venv/bin/python)
+// 3. System python3 / python
 //
-// Local development (Windows/macOS/Linux): /opt/venv/bin/python does not exist,
-// so we find the first system interpreter (python3, python) that can actually
-// import yt_dlp.  A bare `python --version` is NOT sufficient — we must confirm
-// the module is importable.
-const VENV_PYTHON = '/opt/venv/bin/python';
-
+// The interpreter MUST pass both CLI execution and module import checks.
 function resolveYtDlpInterpreter() {
-  // 1. Prefer the explicit venv interpreter (Render production / Docker)
-  if (fs.existsSync(VENV_PYTHON)) {
-    return VENV_PYTHON;
-  }
-  // 2. Local dev: find first interpreter that can actually run yt_dlp
-  for (const candidate of ['python3', 'python']) {
+  const isWin = process.platform === 'win32';
+  const candidates = [
+    process.env.PYTHON_PATH,
+    path.join(__dirname, '.venv', isWin ? 'Scripts' : 'bin', isWin ? 'python.exe' : 'python'),
+    path.join(__dirname, '.venv', 'bin', 'python3'),
+    '/opt/venv/bin/python',
+    '/opt/venv/bin/python3',
+    'python3',
+    'python'
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
     try {
-      const r = spawnSync(candidate, ['-m', 'yt_dlp', '--version'], { shell: false });
-      if (r.status === 0) return candidate;
+      const cliRes = spawnSync(candidate, ['-m', 'yt_dlp', '--version'], { shell: false });
+      if (cliRes.status === 0) {
+        const importRes = spawnSync(candidate, ['-c', 'import yt_dlp; print(yt_dlp.version.__version__)'], { shell: false });
+        if (importRes.status === 0) {
+          return candidate;
+        }
+      }
     } catch (_) {}
   }
   return null;
@@ -127,22 +134,16 @@ const pythonCmd = resolveYtDlpInterpreter();
 
 if (!pythonCmd) {
   console.error('FATAL: yt-dlp is not available.');
-  console.error('  Production fix : buildCommand creates /opt/venv with yt-dlp installed.');
-  console.error('  Local dev fix  : python3 -m pip install yt-dlp');
+  console.error('  Production fix : npm install creates .venv with yt-dlp installed via postinstall.');
+  console.error('  Local dev fix  : npm run postinstall  OR  python3 -m pip install yt-dlp');
   if (process.env.NODE_ENV === 'production') process.exit(1);
 }
 
-// Startup verification — both CLI and import must pass
+// Startup verification — log verified path and version
 (function verifyYtDlp() {
-  if (!pythonCmd) return; // already logged fatal above
+  if (!pythonCmd) return;
 
   const cliCheck = spawnSync(pythonCmd, ['-m', 'yt_dlp', '--version'], { shell: false });
-  if (cliCheck.status !== 0) {
-    const err = (cliCheck.stderr || Buffer.alloc(0)).toString().trim();
-    console.error(`FATAL: ${pythonCmd} -m yt_dlp --version failed (exit ${cliCheck.status}): ${err}`);
-    if (process.env.NODE_ENV === 'production') process.exit(1);
-    return;
-  }
   const version = (cliCheck.stdout || Buffer.alloc(0)).toString().trim();
 
   const importCheck = spawnSync(
@@ -150,12 +151,6 @@ if (!pythonCmd) {
     ['-c', 'import yt_dlp; print(yt_dlp.version.__version__)'],
     { shell: false }
   );
-  if (importCheck.status !== 0) {
-    const err = (importCheck.stderr || Buffer.alloc(0)).toString().trim();
-    console.error(`FATAL: ${pythonCmd} -c "import yt_dlp" failed: ${err}`);
-    if (process.env.NODE_ENV === 'production') process.exit(1);
-    return;
-  }
   const importedVersion = (importCheck.stdout || Buffer.alloc(0)).toString().trim();
   console.log(`✔ yt-dlp VERIFIED: CLI=${version}  import=${importedVersion}  interpreter=${pythonCmd}`);
 })();
