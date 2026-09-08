@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -90,11 +90,11 @@ function main() {
   let targetPython = null;
 
   if (venvCreated && fs.existsSync(venvPython)) {
-    console.log(`\nInstalling yt-dlp into ${venvPython}...`);
-    let pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp']);
+    console.log(`\nInstalling yt-dlp and dependencies into ${venvPython}...`);
+    let pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi']);
     if (!pipOk) {
       runCmd(basePython, ['-m', 'ensurepip', '--upgrade']);
-      pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp']);
+      pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi']);
     }
 
     if (verifyYtDlp(venvPython)) {
@@ -105,7 +105,7 @@ function main() {
   // Fallback 1: Install to system / user Python if venv pip failed
   if (!targetPython) {
     console.log('\nFallback: Installing yt-dlp via base Python pip...');
-    runCmd(basePython, ['-m', 'pip', 'install', '--no-cache-dir', '--break-system-packages', '-U', 'yt-dlp']);
+    runCmd(basePython, ['-m', 'pip', 'install', '--no-cache-dir', '--break-system-packages', '-U', 'yt-dlp', 'curl-cffi']);
     if (verifyYtDlp(basePython)) {
       targetPython = basePython;
     }
