@@ -10,8 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install latest yt-dlp globally
-RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp
+# Install yt-dlp via python3 -m pip to guarantee it is installed into the exact
+# Python3 interpreter that server.js will call (`python3 -m yt_dlp`).
+# Using pip3 or a bare pip may target a different interpreter / path on some distros.
+RUN python3 -m pip install --no-cache-dir --break-system-packages -U yt-dlp
+
+# Verify that python3 can actually import and run yt_dlp — hard-fail the build if not.
+RUN python3 -m yt_dlp --version
 
 # Set working directory
 WORKDIR /app
