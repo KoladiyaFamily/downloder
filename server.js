@@ -444,6 +444,39 @@ function parseYtDlpError(stderrText, defaultMsg = 'Unable to process this URL. P
   return defaultMsg;
 }
 
+// Resolve optional cookies file from environment variables or persistent disk
+function resolveCookieFile() {
+  const envPath = process.env.COOKIES_FILE || process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
+  }
+
+  const diskPath = '/data/cookies.txt';
+  if (fs.existsSync(diskPath)) {
+    return diskPath;
+  }
+
+  const rawCookies = process.env.YOUTUBE_COOKIES || process.env.COOKIES_CONTENT;
+  if (rawCookies && typeof rawCookies === 'string' && rawCookies.trim().length > 0) {
+    const runtimeCookiePath = path.join(TEMP_DIR, 'yt_cookies.txt');
+    try {
+      let content = rawCookies.trim();
+      if (!content.includes('\n') && !content.includes('\t') && content.length > 50) {
+        try {
+          const decoded = Buffer.from(content, 'base64').toString('utf8');
+          if (decoded.includes('# Netscape') || decoded.includes('.youtube.com') || decoded.includes('\t')) {
+            content = decoded;
+          }
+        } catch (_) {}
+      }
+      fs.writeFileSync(runtimeCookiePath, content, { encoding: 'utf8', mode: 0o600 });
+      return runtimeCookiePath;
+    } catch (_) {}
+  }
+
+  return null;
+}
+
 // Safe yt-dlp arguments base
 function getYtDlpArgs() {
   const args = [
@@ -455,6 +488,23 @@ function getYtDlpArgs() {
     '--extractor-args', 'youtube:player_client=mweb,android',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
   ];
+
+  // Optional authenticated proxy support for datacenter environments
+  const proxy = process.env.YT_DLP_PROXY || process.env.PROXY || process.env.HTTPS_PROXY;
+  if (proxy && typeof proxy === 'string' && proxy.trim()) {
+    args.push('--proxy', proxy.trim());
+  }
+
+  // Optional cookie file support for datacenter IP authorization
+  const cookieFilePath = resolveCookieFile();
+  if (cookieFilePath) {
+    args.push('--cookies', cookieFilePath);
+  }
+
+  // Optional PO Token support
+  if (process.env.YOUTUBE_PO_TOKEN) {
+    args.push('--extractor-args', `youtube:po_token=${process.env.YOUTUBE_PO_TOKEN.trim()}`);
+  }
 
   if (activeFFmpegPath && (activeFFmpegPath === 'ffmpeg' || fs.existsSync(activeFFmpegPath))) {
     args.push('--ffmpeg-location', activeFFmpegPath);
