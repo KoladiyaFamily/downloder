@@ -485,7 +485,8 @@ function getYtDlpArgs() {
     '--no-warnings',
     '--force-ipv4',
     '--js-runtimes', 'node',
-    '--extractor-args', 'youtube:player_client=mweb,android',
+    '--impersonate', 'chrome',
+    '--extractor-args', 'youtube:player_client=ios,android,tv;player_skip=webpage,configs',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
   ];
 
