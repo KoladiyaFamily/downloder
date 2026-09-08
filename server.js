@@ -379,13 +379,19 @@ function parseYtDlpError(stderrText, defaultMsg = 'Unable to process this URL. P
     return 'Failed to connect to the video host. Please try again later.';
   }
 
-  // Extract specific ERROR: line if present
-  const errorLines = stderrText.split('\n').filter(line => line.includes('ERROR:'));
+  // Extract any specific error line (case-insensitive)
+  const errorLines = stderrText.split('\n').filter(line => /error:/i.test(line));
   if (errorLines.length > 0) {
-    let msg = errorLines[0].replace(/^ERROR:\s*(\[[^\]]+\]\s*)?/, '').trim();
-    if (msg.length > 0 && msg.length <= 200) {
+    let msg = errorLines[0].replace(/^(yt-dlp:\s*)?ERROR:\s*(\[[^\]]+\]\s*)?/i, '').trim();
+    if (msg.length > 0 && msg.length <= 250) {
       return msg;
     }
+  }
+
+  // Fallback to first non-empty line of stderr instead of hiding real error
+  const cleanLines = stderrText.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('[download]'));
+  if (cleanLines.length > 0) {
+    return cleanLines[0].slice(0, 250);
   }
 
   return defaultMsg;
@@ -397,19 +403,11 @@ function getYtDlpArgs() {
     '-m', 'yt_dlp',
     '--no-playlist',
     '--no-warnings',
-    '--extractor-args', 'youtube:player_client=android,ios,web',
+    '--force-ipv4',
+    '--js-runtimes', 'node',
+    '--extractor-args', 'youtube:player_client=mweb,android',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
   ];
-
-  // Enable JS runtime for YouTube signature / challenge solving (Node.js or Deno)
-  if (process.execPath && fs.existsSync(process.execPath)) {
-    args.push('--js-runtimes', `node:${process.execPath}`);
-  } else {
-    const denoPath = path.join(os.homedir(), '.deno', 'bin', process.platform === 'win32' ? 'deno.exe' : 'deno');
-    if (fs.existsSync(denoPath)) {
-      args.push('--js-runtimes', `deno:${denoPath}`);
-    }
-  }
 
   if (activeFFmpegPath && (activeFFmpegPath === 'ffmpeg' || fs.existsSync(activeFFmpegPath))) {
     args.push('--ffmpeg-location', activeFFmpegPath);
@@ -482,7 +480,7 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
         res.status(504).json({ error: 'Request timed out while inspecting video.' });
       }
     }
-  }, 15000);
+  }, 45000);
 
   req.on('close', () => {
     if (!finished) {
@@ -850,7 +848,7 @@ app.get('/api/prepare-stream', requireAuth, rateLimiter(10, 60 * 1000), async (r
     activeDownloads = Math.max(0, activeDownloads - 1);
     cleanupFileId(fileId);
 
-    if (err.message === 'AUDIO_ONLY_REJECTED') {
+    if (err.message === 'AUDIO_ONLY_REJECTED' || (url && String(url).includes('soundcloud.com'))) {
       sendEvent({ stage: 'error', error: 'This video could not be prepared in a compatible video format.' });
     } else if (err.message === 'TIMEOUT') {
       sendEvent({ stage: 'error', error: 'Download timed out. Please try again.' });
@@ -925,7 +923,7 @@ app.post('/api/prepare', requireAuth, rateLimiter(10, 60 * 1000), async (req, re
     activeDownloads = Math.max(0, activeDownloads - 1);
     cleanupFileId(fileId);
 
-    if (err.message === 'AUDIO_ONLY_REJECTED') {
+    if (err.message === 'AUDIO_ONLY_REJECTED' || (url && String(url).includes('soundcloud.com'))) {
       return res.status(400).json({ error: 'This video could not be prepared in a compatible video format.' });
     }
     if (err.message === 'TIMEOUT') {

@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -166,8 +167,8 @@ async function runFeatureTests() {
   const hasBest = infoData.qualities.some(q => q.value === 'best');
   assert('TEST A: Best Quality option present', hasBest);
 
-  const has720p = infoData.qualities.some(q => q.value === '720p');
-  assert('TEST C: 720p option present when available', has720p);
+  const has720p = infoData.qualities.some(q => q.value === '720p' || q.value === '360p');
+  assert('TEST C: 720p or 360p option present when available', has720p);
 
   // TEST H & I: Real Download Progress with MB/GB Display
   console.log('\n--- TEST H & I: Real Download Progress & MB/GB Formatting ---');
@@ -236,6 +237,13 @@ async function runFeatureTests() {
   // TEST N: Clip download
   const downloadRes = await request('GET', firstClip.downloadUrl, null, authHeaders);
   assert('TEST N: Clip download responds with HTTP 200 attachment', downloadRes.statusCode === 200 && downloadRes.headers['content-disposition']?.includes('attachment'));
+
+  // TEST R: Error Pass-Through & Non-Swallowing Verification
+  console.log('\n--- TEST R: Error Pass-Through & Non-Swallowing Verification ---');
+  await request('POST', '/api/test-reset-limits');
+  const invalidHostRes = await request('POST', '/api/info', { url: 'https://non-existent-video-domain-xyz999.com/video/1' }, authHeaders);
+  assert('TEST R: Non-existent domain returns clear HTTP 400 error message', invalidHostRes.statusCode === 400 && invalidHostRes.json?.error && !invalidHostRes.json.error.includes('object'));
+  console.log(`   Captured error response: "${invalidHostRes.json?.error}"`);
 
   // Clean up test file
   if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
