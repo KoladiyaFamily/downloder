@@ -1,26 +1,29 @@
 FROM node:20-bookworm-slim
 
-# Install system dependencies: Python3, pip, FFmpeg (includes ffprobe), curl, ca-certificates.
-# python-is-python3 is intentionally NOT installed — server.js calls python3 explicitly,
-# so a /usr/bin/python symlink is never used and cannot silently resolve to the wrong interpreter.
+# Install system dependencies: Python3 + venv module, FFmpeg, curl, ca-certificates.
+# python-is-python3 is intentionally NOT installed — /opt/venv/bin/python is the sole
+# interpreter used for yt-dlp; no ambiguous /usr/bin/python symlink is needed.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
+    python3-venv \
     ffmpeg \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp using python3's own pip module.
-# This guarantees yt-dlp lands in the EXACT site-packages directory that
-# `python3 -m yt_dlp` will search at runtime — no path ambiguity possible.
-RUN python3 -m pip install --no-cache-dir --break-system-packages -U yt-dlp
+# Create a dedicated virtual environment — this is the ONLY Python environment
+# that server.js will use for yt-dlp. No system-wide pip installs, no ambiguity.
+RUN python3 -m venv /opt/venv
 
-# --- Build-time verification (both must pass or build fails) ---
-# 1. CLI round-trip: python3 can launch yt_dlp as a module and print its version.
-RUN python3 -m yt_dlp --version
-# 2. Import check: the yt_dlp package is importable and reports its version string.
-RUN python3 -c "import yt_dlp; print('yt_dlp import OK:', yt_dlp.version.__version__)"
+# Install latest yt-dlp into the venv using the venv's own pip.
+RUN /opt/venv/bin/python -m pip install --no-cache-dir -U yt-dlp
+
+# --- Build-time verification (BOTH must pass or build hard-fails) ---
+# 1. CLI round-trip: /opt/venv/bin/python can run yt_dlp and print version.
+RUN /opt/venv/bin/python -m yt_dlp --version
+# 2. Import check: yt_dlp is fully importable from the venv.
+RUN /opt/venv/bin/python -c "import yt_dlp; print('yt_dlp import OK:', yt_dlp.version.__version__)"
 
 # Set working directory
 WORKDIR /app

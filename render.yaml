@@ -1,10 +1,19 @@
 services:
   - type: web
     name: downloader
-    runtime: docker
+    runtime: node
     plan: free
     region: oregon
-    dockerfilePath: ./Dockerfile
+    # Build: npm install + create /opt/venv + install yt-dlp into the venv.
+    # /opt/venv/bin/python is the ONLY interpreter server.js will call for yt-dlp.
+    # Both verification steps must pass or the build fails before deployment.
+    buildCommand: >-
+      npm install &&
+      python3 -m venv /opt/venv &&
+      /opt/venv/bin/python -m pip install --no-cache-dir -U yt-dlp &&
+      /opt/venv/bin/python -m yt_dlp --version &&
+      /opt/venv/bin/python -c "import yt_dlp; print('yt_dlp import OK:', yt_dlp.version.__version__)"
+    startCommand: node server.js
     autoDeploy: true
     disk:
       name: downloader-data

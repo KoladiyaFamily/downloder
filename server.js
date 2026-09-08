@@ -97,41 +97,68 @@ const ffmpegCheck = verifyFFmpeg();
 const isFFmpegReady = ffmpegCheck.available;
 const activeFFmpegPath = ffmpegCheck.path || ffmpegPath;
 
-// ─── Single authoritative yt-dlp execution path ────────────────────────────
-// The Dockerfile installs yt-dlp via `python3 -m pip` and verifies the import,
-// so we ALWAYS call `python3 -m yt_dlp`. We never fall back to bare `python`
-// because that could silently resolve to a different interpreter (e.g. Python 2,
-// a venv, or the /usr/bin/python symlink) that does NOT have yt_dlp installed.
-const pythonCmd = 'python3';
+// ─── yt-dlp Python interpreter resolution ──────────────────────────────────
+// Production (Render native / Docker): /opt/venv/bin/python is created by the
+// render.yaml buildCommand (or Dockerfile RUN steps) and is the ONLY interpreter
+// that has yt-dlp installed.  We check it first and use it unconditionally if present.
+//
+// Local development (Windows/macOS/Linux): /opt/venv/bin/python does not exist,
+// so we find the first system interpreter (python3, python) that can actually
+// import yt_dlp.  A bare `python --version` is NOT sufficient — we must confirm
+// the module is importable.
+const VENV_PYTHON = '/opt/venv/bin/python';
 
+function resolveYtDlpInterpreter() {
+  // 1. Prefer the explicit venv interpreter (Render production / Docker)
+  if (fs.existsSync(VENV_PYTHON)) {
+    return VENV_PYTHON;
+  }
+  // 2. Local dev: find first interpreter that can actually run yt_dlp
+  for (const candidate of ['python3', 'python']) {
+    try {
+      const r = spawnSync(candidate, ['-m', 'yt_dlp', '--version'], { shell: false });
+      if (r.status === 0) return candidate;
+    } catch (_) {}
+  }
+  return null;
+}
+
+const pythonCmd = resolveYtDlpInterpreter();
+
+if (!pythonCmd) {
+  console.error('FATAL: yt-dlp is not available.');
+  console.error('  Production fix : buildCommand creates /opt/venv with yt-dlp installed.');
+  console.error('  Local dev fix  : python3 -m pip install yt-dlp');
+  if (process.env.NODE_ENV === 'production') process.exit(1);
+}
+
+// Startup verification — both CLI and import must pass
 (function verifyYtDlp() {
-  // Step 1: CLI module round-trip
-  const cliCheck = spawnSync('python3', ['-m', 'yt_dlp', '--version'], { shell: false });
+  if (!pythonCmd) return; // already logged fatal above
+
+  const cliCheck = spawnSync(pythonCmd, ['-m', 'yt_dlp', '--version'], { shell: false });
   if (cliCheck.status !== 0) {
     const err = (cliCheck.stderr || Buffer.alloc(0)).toString().trim();
-    console.error(`FATAL: python3 -m yt_dlp --version failed (exit ${cliCheck.status}): ${err}`);
-    console.error('Fix: run  python3 -m pip install --break-system-packages yt-dlp');
+    console.error(`FATAL: ${pythonCmd} -m yt_dlp --version failed (exit ${cliCheck.status}): ${err}`);
     if (process.env.NODE_ENV === 'production') process.exit(1);
     return;
   }
   const version = (cliCheck.stdout || Buffer.alloc(0)).toString().trim();
 
-  // Step 2: Import verification — confirms the package is fully installed
   const importCheck = spawnSync(
-    'python3',
+    pythonCmd,
     ['-c', 'import yt_dlp; print(yt_dlp.version.__version__)'],
     { shell: false }
   );
   if (importCheck.status !== 0) {
     const err = (importCheck.stderr || Buffer.alloc(0)).toString().trim();
-    console.error(`FATAL: python3 -c "import yt_dlp" failed: ${err}`);
+    console.error(`FATAL: ${pythonCmd} -c "import yt_dlp" failed: ${err}`);
     if (process.env.NODE_ENV === 'production') process.exit(1);
     return;
   }
   const importedVersion = (importCheck.stdout || Buffer.alloc(0)).toString().trim();
-  console.log(`✔ yt-dlp VERIFIED: CLI=${version}  import=${importedVersion}  interpreter=python3`);
+  console.log(`✔ yt-dlp VERIFIED: CLI=${version}  import=${importedVersion}  interpreter=${pythonCmd}`);
 })();
-
 
 // Temporary download directory
 const TEMP_DIR = path.join(os.tmpdir(), 'antigravity_video_temp');
