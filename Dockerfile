@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp globally
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+# Install latest yt-dlp globally
+RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp
 
 # Set working directory
 WORKDIR /app
