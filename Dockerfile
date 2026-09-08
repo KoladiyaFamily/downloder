@@ -1,22 +1,26 @@
 FROM node:20-bookworm-slim
 
-# Install system dependencies: Python3, pip, python-is-python3, and FFmpeg (includes ffprobe)
+# Install system dependencies: Python3, pip, FFmpeg (includes ffprobe), curl, ca-certificates.
+# python-is-python3 is intentionally NOT installed — server.js calls python3 explicitly,
+# so a /usr/bin/python symlink is never used and cannot silently resolve to the wrong interpreter.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
-    python-is-python3 \
     ffmpeg \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp via python3 -m pip to guarantee it is installed into the exact
-# Python3 interpreter that server.js will call (`python3 -m yt_dlp`).
-# Using pip3 or a bare pip may target a different interpreter / path on some distros.
+# Install yt-dlp using python3's own pip module.
+# This guarantees yt-dlp lands in the EXACT site-packages directory that
+# `python3 -m yt_dlp` will search at runtime — no path ambiguity possible.
 RUN python3 -m pip install --no-cache-dir --break-system-packages -U yt-dlp
 
-# Verify that python3 can actually import and run yt_dlp — hard-fail the build if not.
+# --- Build-time verification (both must pass or build fails) ---
+# 1. CLI round-trip: python3 can launch yt_dlp as a module and print its version.
 RUN python3 -m yt_dlp --version
+# 2. Import check: the yt_dlp package is importable and reports its version string.
+RUN python3 -c "import yt_dlp; print('yt_dlp import OK:', yt_dlp.version.__version__)"
 
 # Set working directory
 WORKDIR /app
