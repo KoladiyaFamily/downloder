@@ -29,7 +29,7 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = db.getUserByEmail(email);
+    const user = await db.getUserByEmail(email);
     if (!user) {
       // Timing-safe: still run bcrypt to prevent user enumeration
       await bcryptDummy();
@@ -100,8 +100,8 @@ module.exports = function createAuthRouter(rateLimiter) {
   // =========================================================================
 
   // GET /admin/api/users  –  list all users
-  router.get('/admin/api/users', requireAdmin, (req, res) => {
-    const users = db.getAllUsers();
+  router.get('/admin/api/users', requireAdmin, async (req, res) => {
+    const users = await db.getAllUsers();
     return res.json({ success: true, users });
   });
 
@@ -119,14 +119,14 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'Role must be "user" or "admin".' });
     }
 
-    const existing = db.getUserByEmail(email);
+    const existing = await db.getUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
     try {
       const hashed = await db.hashPassword(password);
-      const user = db.createUser(email, hashed, role || 'user');
+      const user = await db.createUser(email, hashed, role || 'user');
       return res.status(201).json({
         success: true,
         user: { id: user.id, email: user.email, role: user.role, is_active: user.is_active, created_at: user.created_at },
@@ -137,29 +137,29 @@ module.exports = function createAuthRouter(rateLimiter) {
   });
 
   // PUT /admin/api/users/:id  –  update email or status
-  router.put('/admin/api/users/:id', requireAdmin, (req, res) => {
+  router.put('/admin/api/users/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { email, is_active } = req.body || {};
 
-    const user = db.getUserById(id);
+    const user = await db.getUserById(id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     if (email !== undefined) {
       if (!db.isValidEmail(email)) return res.status(400).json({ error: 'Invalid email address.' });
-      const existing = db.getUserByEmail(email);
+      const existing = await db.getUserByEmail(email);
       if (existing && existing.id !== id) return res.status(409).json({ error: 'Email already in use.' });
-      db.updateUserEmail(id, email);
+      await db.updateUserEmail(id, email);
     }
 
     if (is_active !== undefined) {
       // Prevent disabling the last active admin
-      if (!is_active && user.role === 'admin' && db.getAdminCount() <= 1) {
+      if (!is_active && user.role === 'admin' && (await db.getAdminCount()) <= 1) {
         return res.status(400).json({ error: 'Cannot disable the only admin account.' });
       }
-      db.updateUserStatus(id, !!is_active);
+      await db.updateUserStatus(id, !!is_active);
     }
 
-    const updated = db.getUserById(id);
+    const updated = await db.getUserById(id);
     return res.json({ success: true, user: sanitizeUser(updated) });
   });
 
@@ -172,40 +172,40 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'New password must be at least 8 characters with uppercase, lowercase, number, and special character.' });
     }
 
-    const user = db.getUserById(id);
+    const user = await db.getUserById(id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     const hashed = await db.hashPassword(password);
-    db.updateUserPassword(id, hashed);
+    await db.updateUserPassword(id, hashed);
 
     return res.json({ success: true, message: 'Password updated. User must log in again with new password.' });
   });
 
   // PUT /admin/api/users/:id/status  –  enable / disable
-  router.put('/admin/api/users/:id/status', requireAdmin, (req, res) => {
+  router.put('/admin/api/users/:id/status', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { is_active } = req.body || {};
 
-    const user = db.getUserById(id);
+    const user = await db.getUserById(id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    if (!is_active && user.role === 'admin' && db.getAdminCount() <= 1) {
+    if (!is_active && user.role === 'admin' && (await db.getAdminCount()) <= 1) {
       return res.status(400).json({ error: 'Cannot disable the only admin account.' });
     }
 
-    db.updateUserStatus(id, !!is_active);
+    await db.updateUserStatus(id, !!is_active);
     return res.json({ success: true });
   });
 
   // DELETE /admin/api/users/:id
-  router.delete('/admin/api/users/:id', requireAdmin, (req, res) => {
+  router.delete('/admin/api/users/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
 
-    const user = db.getUserById(id);
+    const user = await db.getUserById(id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     if (user.role === 'admin') {
-      if (db.getAdminCount() <= 1) {
+      if ((await db.getAdminCount()) <= 1) {
         return res.status(400).json({ error: 'Cannot delete the only admin account.' });
       }
     }
@@ -215,7 +215,7 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'Cannot delete your own account while logged in.' });
     }
 
-    db.deleteUser(id);
+    await db.deleteUser(id);
     return res.json({ success: true });
   });
 
@@ -230,7 +230,7 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'Current password is required.' });
     }
 
-    const admin = db.getUserById(req.session.userId);
+    const admin = await db.getUserById(req.session.userId);
     if (!admin) return res.status(404).json({ error: 'Admin account not found.' });
 
     const valid = await db.verifyPassword(currentPassword, admin.password);
@@ -241,9 +241,9 @@ module.exports = function createAuthRouter(rateLimiter) {
     // Change email
     if (newEmail !== undefined && newEmail !== '') {
       if (!db.isValidEmail(newEmail)) return res.status(400).json({ error: 'Invalid new email address.' });
-      const existing = db.getUserByEmail(newEmail);
+      const existing = await db.getUserByEmail(newEmail);
       if (existing && existing.id !== admin.id) return res.status(409).json({ error: 'Email already in use.' });
-      db.updateUserEmail(admin.id, newEmail);
+      await db.updateUserEmail(admin.id, newEmail);
       req.session.email = newEmail.trim().toLowerCase();
       changed = true;
     }
@@ -257,7 +257,7 @@ module.exports = function createAuthRouter(rateLimiter) {
         return res.status(400).json({ error: 'New password and confirm password do not match.' });
       }
       const hashed = await db.hashPassword(newPassword);
-      db.updateUserPassword(admin.id, hashed);
+      await db.updateUserPassword(admin.id, hashed);
       changed = true;
 
       // Invalidate session after password change — force re-login
@@ -281,7 +281,7 @@ module.exports = function createAuthRouter(rateLimiter) {
       return res.status(400).json({ error: 'Current password is required to make changes.' });
     }
 
-    const user = db.getUserById(req.session.userId);
+    const user = await db.getUserById(req.session.userId);
     if (!user) return res.status(404).json({ error: 'User account not found.' });
 
     const valid = await db.verifyPassword(currentPassword, user.password);
@@ -290,9 +290,9 @@ module.exports = function createAuthRouter(rateLimiter) {
     // Change email
     if (newEmail !== undefined && newEmail !== '') {
       if (!db.isValidEmail(newEmail)) return res.status(400).json({ error: 'Invalid new email address.' });
-      const existing = db.getUserByEmail(newEmail);
+      const existing = await db.getUserByEmail(newEmail);
       if (existing && existing.id !== user.id) return res.status(409).json({ error: 'Email already in use.' });
-      db.updateUserEmail(user.id, newEmail);
+      await db.updateUserEmail(user.id, newEmail);
       req.session.email = newEmail.trim().toLowerCase();
     }
 
@@ -305,7 +305,7 @@ module.exports = function createAuthRouter(rateLimiter) {
         return res.status(400).json({ error: 'New password and confirm password do not match.' });
       }
       const hashed = await db.hashPassword(newPassword);
-      db.updateUserPassword(user.id, hashed);
+      await db.updateUserPassword(user.id, hashed);
 
       return req.session.destroy(() => {
         res.clearCookie('sid');

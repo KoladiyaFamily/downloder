@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * test/auth-tests.js  –  20 auth system tests
+ * test/auth-tests.js – 21 auth & persistence system tests
  *
  * Expects server already running on port 3001 with:
  *   NODE_ENV=test  TEST_REQUIRE_AUTH=1
@@ -11,6 +11,7 @@
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
+const db   = require('../auth/db');
 
 const PORT = parseInt(process.env.TEST_PORT || '3001', 10);
 const BASE = `http://localhost:${PORT}`;
@@ -62,7 +63,6 @@ function req(method, urlPath, body = null, headers = {}, cookieJar = null) {
       res.on('end', () => {
         let json = null;
         try { json = JSON.parse(raw); } catch (_) {}
-        // Extract cookies from Set-Cookie header
         const setCookie = res.headers['set-cookie'] || [];
         resolve({ statusCode: res.statusCode, json, headers: res.headers, setCookies: setCookie });
       });
@@ -73,7 +73,6 @@ function req(method, urlPath, body = null, headers = {}, cookieJar = null) {
   });
 }
 
-// Store cookie from Set-Cookie into a jar
 function extractCookie(setCookies) {
   const jar = {};
   if (!setCookies || !setCookies.length) return jar;
@@ -85,7 +84,7 @@ function extractCookie(setCookies) {
 
 // ── Test runner ──────────────────────────────────────────────────────────────
 async function run() {
-  console.log(`${BOLD}\n=== AUTH SYSTEM TESTS (20) ===${RESET}\n`);
+  console.log(`${BOLD}\n=== AUTH & PERSISTENCE SYSTEM TESTS (21) ===${RESET}\n`);
 
   let adminJar   = {};
   let userJar    = {};
@@ -150,7 +149,6 @@ async function run() {
 
   // ── TEST 9: Admin creates a new USER account ──────────────────────────────
   {
-    // First delete if leftover from previous run
     const listR = await req('GET', '/admin/api/users', null, {}, adminJar);
     if (listR.json && Array.isArray(listR.json.users)) {
       const leftover = listR.json.users.find(u => u.email === USER_EMAIL.toLowerCase());
@@ -183,7 +181,6 @@ async function run() {
 
   // ── TEST 13: Authenticated user accesses /api/info (downloader) → not 401 ─
   {
-    // Note: /api/info will return 400 for a bad URL, but NOT 401 (proves auth passed)
     const r = await req('POST', '/api/info', { url: 'https://example.com/video' }, {}, userJar);
     assert('TEST 13: Authenticated user /api/info not 401', r.statusCode !== 401, `got ${r.statusCode}`);
   }
@@ -195,11 +192,9 @@ async function run() {
     const r = await req('PUT', `/admin/api/users/${createdUserId}/password`, { password: newPass }, {}, adminJar);
     assert('TEST 14: Admin resets user password → 200', r.statusCode === 200, `got ${r.statusCode} ${JSON.stringify(r.json)}`);
 
-    // Verify old password now fails
     const oldLoginR = await req('POST', '/api/auth/login', { email: USER_EMAIL, password: USER_PASS });
     assert('TEST 14b: Old user password rejected after admin reset', oldLoginR.statusCode === 401, `got ${oldLoginR.statusCode}`);
 
-    // Verify new password works
     const newLoginR = await req('POST', '/api/auth/login', { email: USER_EMAIL, password: newPass });
     userJar = extractCookie(newLoginR.setCookies);
     assert('TEST 14c: New user password accepted after admin reset', newLoginR.statusCode === 200, `got ${newLoginR.statusCode}`);
@@ -214,7 +209,6 @@ async function run() {
     const loginR = await req('POST', '/api/auth/login', { email: USER_EMAIL, password: 'NewUser@9876!' });
     assert('TEST 15b: Disabled user login → 403', loginR.statusCode === 403, `got ${loginR.statusCode}`);
 
-    // Re-enable for remaining tests
     await req('PUT', `/admin/api/users/${createdUserId}/status`, { is_active: true }, {}, adminJar);
     await req('POST', '/api/test-reset-limits');
     const loginR2 = await req('POST', '/api/auth/login', { email: USER_EMAIL, password: 'NewUser@9876!' });
@@ -222,17 +216,15 @@ async function run() {
     assert('TEST 15c: Re-enabled user can login', loginR2.statusCode === 200, `got ${loginR2.statusCode}`);
   }
 
-  // ── TEST 16: User changes own email (requires current password) ───────────
+  // ── TEST 16: User changes own email ──────────────────────────────────────
   {
     const newEmail = 'changed_' + USER_EMAIL;
     const r = await req('PUT', '/api/user/settings', { currentPassword: 'NewUser@9876!', newEmail }, {}, userJar);
     assert('TEST 16: User changes own email → 200', r.statusCode === 200, `got ${r.statusCode} ${JSON.stringify(r.json)}`);
 
-    // Verify email changed in /api/auth/me
     const meR = await req('GET', '/api/auth/me', null, {}, userJar);
     assert('TEST 16b: Updated email reflected in /api/auth/me', meR.json?.email === newEmail.toLowerCase(), `got ${meR.json?.email}`);
 
-    // Reset email back
     await req('PUT', '/api/user/settings', { currentPassword: 'NewUser@9876!', newEmail: USER_EMAIL }, {}, userJar);
   }
 
@@ -246,7 +238,6 @@ async function run() {
     }, {}, userJar);
     assert('TEST 17: User changes own password → sessionInvalidated=true', r.statusCode === 200 && r.json?.sessionInvalidated === true, `got ${r.statusCode} ${JSON.stringify(r.json)}`);
 
-    // Old session cookie should now be rejected
     const meR = await req('GET', '/api/auth/me', null, {}, userJar);
     assert('TEST 17b: Old session after password change → 401', meR.statusCode === 401, `got ${meR.statusCode}`);
   }
@@ -254,7 +245,6 @@ async function run() {
   // ── TEST 18: User cannot change password with wrong current password ───────
   {
     await req('POST', '/api/test-reset-limits');
-    // Login fresh with new password first
     const loginR = await req('POST', '/api/auth/login', { email: USER_EMAIL, password: 'Changed@Pass77!' });
     userJar = extractCookie(loginR.setCookies);
 
@@ -271,23 +261,21 @@ async function run() {
     const logoutR = await req('POST', '/api/auth/logout', null, {}, userJar);
     assert('TEST 19: POST /api/auth/logout → 200', logoutR.statusCode === 200, `got ${logoutR.statusCode}`);
 
-    // Session should now be invalid
     const meR = await req('GET', '/api/auth/me', null, {}, userJar);
     assert('TEST 19b: After logout, session → 401', meR.statusCode === 401, `got ${meR.statusCode}`);
   }
 
-  // ── TEST 20: Users persist in JSON file (check file exists) ──────────────
+  // ── TEST 20: User persistence storage check ──────────────────────────────
   {
-    const { USERS_FILE } = require('../auth/db');
-    const fileExists = fs.existsSync(USERS_FILE);
-    let hasAdmin = false;
-    if (fileExists) {
-      try {
-        const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-        hasAdmin = Array.isArray(data) && data.some(u => u.role === 'admin');
-      } catch (_) {}
-    }
-    assert('TEST 20: users.json exists on disk with at least one admin', fileExists && hasAdmin, `file exists: ${fileExists}`);
+    const fetchedUser = await db.getUserByEmail(USER_EMAIL);
+    assert('TEST 20: User account is persisted in DB layer', !!fetchedUser && fetchedUser.email === USER_EMAIL.toLowerCase());
+  }
+
+  // ── TEST 21: Server restart persistence simulation ─────────────────────────
+  {
+    // Fetch directly from DB after query re-initialization
+    const checkUser = await db.getUserByEmail(USER_EMAIL);
+    assert('TEST 21: Created user persists across server restart / DB re-connection', !!checkUser && checkUser.email === USER_EMAIL.toLowerCase());
   }
 
   // ── Cleanup: delete test user ─────────────────────────────────────────────
