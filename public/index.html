@@ -922,7 +922,7 @@
 
         previewCard.classList.add('active');
       } catch (err) {
-        showError(err.message && !err.message.includes('object') && err.message.length < 100 ? err.message : 'Unable to process this URL.');
+        showError(err.message && !err.message.includes('object') ? err.message : 'Unable to process this URL.');
       } finally {
         setGetLoading(false);
       }

@@ -348,6 +348,49 @@ function formatDuration(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Parse yt-dlp stderr output into user-friendly error messages
+function parseYtDlpError(stderrText, defaultMsg = 'Unable to process this URL. Please check the link and try again.') {
+  if (!stderrText || typeof stderrText !== 'string') return defaultMsg;
+
+  const lower = stderrText.toLowerCase();
+
+  if (lower.includes('private video') || lower.includes('video is private')) {
+    return 'This video is private and cannot be downloaded.';
+  }
+  if (lower.includes('sign in to confirm your age') || lower.includes('age-restricted') || lower.includes('confirm your age')) {
+    return 'This video is age-restricted and requires authorization.';
+  }
+  if (lower.includes('video unavailable') || lower.includes('video is unavailable') || lower.includes('has been removed')) {
+    return 'This video is unavailable or has been removed.';
+  }
+  if (lower.includes('not available in your country') || lower.includes('uploader has not made this video available')) {
+    return 'This video is geo-restricted and not available in your region.';
+  }
+  if (lower.includes('is not a valid url') || lower.includes('unsupported url')) {
+    return 'The provided URL is not supported or is invalid.';
+  }
+  if (lower.includes('copyright') || lower.includes('blocked it on copyright grounds')) {
+    return 'This video cannot be downloaded due to copyright restrictions.';
+  }
+  if (lower.includes('http error 404') || lower.includes('404: not found')) {
+    return 'The video could not be found (404 Not Found).';
+  }
+  if (lower.includes('unable to download webpage') || lower.includes('name or service not known') || lower.includes('connection refused')) {
+    return 'Failed to connect to the video host. Please try again later.';
+  }
+
+  // Extract specific ERROR: line if present
+  const errorLines = stderrText.split('\n').filter(line => line.includes('ERROR:'));
+  if (errorLines.length > 0) {
+    let msg = errorLines[0].replace(/^ERROR:\s*(\[[^\]]+\]\s*)?/, '').trim();
+    if (msg.length > 0 && msg.length <= 200) {
+      return msg;
+    }
+  }
+
+  return defaultMsg;
+}
+
 // Safe yt-dlp arguments base
 function getYtDlpArgs() {
   const args = [
@@ -417,6 +460,7 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
   ];
 
   let stdoutData = '';
+  let stderrData = '';
   let finished = false;
 
   const proc = spawn(pythonCmd, args, { shell: false });
@@ -445,13 +489,20 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
     }
   });
 
+  proc.stderr.on('data', (chunk) => {
+    if (stderrData.length < 1024 * 1024) {
+      stderrData += chunk.toString();
+    }
+  });
+
   proc.on('close', (code) => {
     if (finished) return;
     finished = true;
     clearTimeout(timeoutTimer);
 
     if (code !== 0) {
-      return res.status(400).json({ error: 'Unable to process this URL. Please check the link and try again.' });
+      const userErr = parseYtDlpError(stderrData, 'Unable to process this URL. Please check the link and try again.');
+      return res.status(400).json({ error: userErr });
     }
 
     try {
@@ -543,6 +594,7 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       cleanUrl
     ];
 
+    let stderrData = '';
     const proc = spawn(pythonCmd, args, { shell: false });
     let isTerminated = false;
 
@@ -565,6 +617,12 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
     }, 300000);
 
     let lastReportedPercent = -1;
+
+    proc.stderr.on('data', (chunk) => {
+      if (stderrData.length < 1024 * 1024) {
+        stderrData += chunk.toString();
+      }
+    });
 
     proc.stdout.on('data', (chunk) => {
       const text = chunk.toString();
@@ -628,7 +686,8 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       clearTimeout(timer);
 
       if (code !== 0) {
-        return reject(new Error('DOWNLOAD_FAILED'));
+        const parsedErr = parseYtDlpError(stderrData, 'Unable to process this video.');
+        return reject(new Error(parsedErr));
       }
 
       try {
@@ -787,7 +846,7 @@ app.get('/api/prepare-stream', requireAuth, rateLimiter(10, 60 * 1000), async (r
     } else if (err.message === 'TIMEOUT') {
       sendEvent({ stage: 'error', error: 'Download timed out. Please try again.' });
     } else {
-      sendEvent({ stage: 'error', error: 'Unable to prepare this video. Please try another supported video URL.' });
+      sendEvent({ stage: 'error', error: err.message || 'Unable to prepare this video. Please try another supported video URL.' });
     }
     res.end();
   }
@@ -863,7 +922,7 @@ app.post('/api/prepare', requireAuth, rateLimiter(10, 60 * 1000), async (req, re
     if (err.message === 'TIMEOUT') {
       return res.status(504).json({ error: 'Download timed out. Please try again.' });
     }
-    return res.status(400).json({ error: 'This video could not be prepared in a compatible video format.' });
+    return res.status(400).json({ error: err.message || 'This video could not be prepared in a compatible video format.' });
   }
 });
 

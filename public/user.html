@@ -276,7 +276,7 @@
         downloadBtn.disabled = false; downloadBtnSpinner.style.display = 'none'; downloadBtnText.textContent = 'Download Video';
         createClipsBtn.disabled = false; createClipsSpinner.style.display = 'none'; createClipsText.textContent = '✨ Create Viral Clips';
         previewCard.classList.add('active');
-      } catch (err) { showError(err.message && !err.message.includes('object') && err.message.length < 100 ? err.message : 'Unable to process this URL.'); }
+      } catch (err) { showError(err.message && !err.message.includes('object') ? err.message : 'Unable to process this URL.'); }
       finally { setGetLoading(false); }
     });
 
