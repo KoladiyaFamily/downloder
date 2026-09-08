@@ -30,10 +30,23 @@
     .btn:disabled { opacity:0.65; cursor:not-allowed; }
     .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .alert { display:none; padding:12px 14px; border-radius:var(--radius-md); font-size:0.88rem; margin-top:12px; }
+    .alert { display:none; padding:12px 14px; border-radius:var(--radius-md); font-size:0.88rem; margin-top:12px; word-break:break-word; }
     .alert.active { display:block; }
     .alert-error { background:var(--danger-bg); border:1px solid rgba(239,68,68,0.25); color:#fca5a5; }
     .alert-success { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#6ee7b7; }
+
+    /* Responsive Media Queries */
+    @media (max-width: 480px) {
+      body { padding: 14px 10px; }
+      .nav-bar { margin-bottom: 16px; }
+      .back-link, .logout-btn { padding: 5px 10px; font-size: 0.78rem; }
+      .header { margin-bottom: 18px; }
+      .title { font-size: 1.45rem; }
+      .subtitle { font-size: 0.82rem; }
+      .card { padding: 18px 14px; border-radius: 14px; margin-bottom: 14px; }
+      .input-field { font-size: 16px; padding: 12px 12px; }
+      .btn { min-height: 46px; font-size: 0.92rem; }
+    }
   </style>
 </head>
 <body>

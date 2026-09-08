@@ -82,6 +82,26 @@
     .clip-actions { display: flex; gap: 8px; margin-top: 4px; }
     .btn-clip-dl { flex: 1; padding: 10px; font-size: 0.88rem; background: var(--success); }
     .footer { text-align: center; margin-top: 24px; font-size: 0.8rem; color: #6b7280; }
+
+    /* Responsive Media Queries */
+    @media (max-width: 640px) {
+      body { padding: 14px 10px; }
+      .header { margin-bottom: 18px; }
+      .title { font-size: 1.6rem; }
+      .subtitle { font-size: 0.88rem; }
+      .card { padding: 16px 12px; border-radius: 14px; }
+      .input-field, .select-field { font-size: 16px; padding: 12px 14px; }
+      .btn { min-height: 46px; font-size: 0.95rem; }
+      .btn-download { font-size: 1rem; padding: 14px; }
+      .user-nav { justify-content: space-between; gap: 6px; }
+      .nav-link { padding: 6px 12px; font-size: 0.78rem; }
+      .progress-box { padding: 12px; }
+      .progress-stats { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 0.78rem; }
+      .clips-title-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .clip-card { padding: 12px; }
+      .clip-actions { flex-direction: column; width: 100%; }
+      .btn-clip-dl { width: 100%; min-height: 44px; }
+    }
   </style>
 </head>
 <body>
