@@ -344,14 +344,18 @@ async function deleteUser(id) {
   saveUsersFile(users);
 }
 
-async function getAdminCount() {
+async function getUserRoleCount(role = 'user') {
   if (isPg()) {
     await initDb();
-    const res = await getPgPool().query("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'");
+    const res = await getPgPool().query("SELECT COUNT(*) AS count FROM users WHERE role = $1", [role]);
     return parseInt(res.rows[0].count, 10) || 0;
   }
 
-  return getUsersFile().filter(u => u.role === 'admin').length;
+  return getUsersFile().filter(u => u.role === role).length;
+}
+
+async function getAdminCount() {
+  return getUserRoleCount('admin');
 }
 
 // ── Bootstrap Admin Account ────────────────────────────────────────────────
@@ -392,8 +396,45 @@ async function bootstrapAdmin() {
   console.log('[AUTH] Admin account created from environment variables.');
 }
 
+// ── Bootstrap Default User Account ──────────────────────────────────────────
+async function bootstrapUser() {
+  await initDb();
+
+  const userCount = await getUserRoleCount('user');
+  if (userCount > 0) return;
+
+  const userEmail = process.env.USER_EMAIL || process.env.DEFAULT_USER_EMAIL;
+  const userPassword = process.env.USER_PASSWORD || process.env.DEFAULT_USER_PASSWORD;
+
+  if (!userEmail || !userPassword) {
+    // Fixed / default safe credentials (works on localhost & production)
+    const defaultEmail = 'user@test.local';
+    const defaultPass = 'User@123456';
+    const hash = await hashPassword(defaultPass);
+    await createUser(defaultEmail, hash, 'user');
+    console.log('[AUTH] Default user created → user@test.local / User@123456');
+    return;
+  }
+
+  if (!isValidEmail(userEmail)) {
+    console.error('FATAL: USER_EMAIL is not a valid email address.');
+    process.exit(1);
+  }
+  if (!isStrongPassword(userPassword)) {
+    console.error('FATAL: USER_PASSWORD does not meet strength requirements (8+ chars, upper+lower+digit+special).');
+    process.exit(1);
+  }
+
+  const hash = await hashPassword(userPassword);
+  await createUser(userEmail, hash, 'user');
+  console.log('[AUTH] Default user account created from environment variables.');
+}
+
 module.exports = {
   bootstrapAdmin,
+  bootstrapUser,
+  getUserRoleCount,
+  getUserCount: () => getUserRoleCount('user'),
   isValidEmail,
   isStrongPassword,
   verifyPassword,

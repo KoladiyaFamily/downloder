@@ -1278,10 +1278,16 @@ function startServer(port) {
   });
 }
 
-// Bootstrap admin account from env vars (runs once on first startup)
-authDb.bootstrapAdmin()
-  .then(() => startServer(DEFAULT_PORT))
-  .catch((err) => {
-    console.error('FATAL: Failed to bootstrap admin account:', err.message);
+// Bootstrap admin and default user accounts from env vars / defaults (runs once on first startup)
+async function bootstrapAndStart() {
+  try {
+    await authDb.bootstrapAdmin();
+    await authDb.bootstrapUser();
+    startServer(DEFAULT_PORT);
+  } catch (err) {
+    console.error('FATAL: Failed to bootstrap accounts:', err.message);
     process.exit(1);
-  });
+  }
+}
+
+bootstrapAndStart();
