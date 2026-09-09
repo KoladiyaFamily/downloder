@@ -37,11 +37,17 @@ function assert(name, cond, detail = '') {
   }
 }
 
+let sessionCookie = null;
+
 function req(method, urlPath, body = null, headers = {}) {
   return new Promise((resolve, reject) => {
     const opts = {
       method,
-      headers: { 'Content-Type': 'application/json', ...headers },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionCookie ? { 'Cookie': sessionCookie } : {}),
+        ...headers
+      },
       hostname: 'localhost',
       port: PORT,
       path: urlPath,
@@ -53,6 +59,9 @@ function req(method, urlPath, body = null, headers = {}) {
       opts.headers['Content-Length'] = Buffer.byteLength(bodyStr);
     }
     const r = http.request(opts, (res) => {
+      if (res.headers['set-cookie']) {
+        sessionCookie = res.headers['set-cookie'][0].split(';')[0];
+      }
       let raw = '';
       res.on('data', d => raw += d);
       res.on('end', () => {
@@ -75,6 +84,7 @@ function downloadMedia(reqPath, destination) {
       port: PORT,
       path: reqPath,
       method: 'GET',
+      headers: sessionCookie ? { 'Cookie': sessionCookie } : {},
       timeout: 45000
     };
 
@@ -112,6 +122,14 @@ async function runUniversalMediaSuite() {
   console.log('===============================================================');
   console.log('       ANTIGRAVITY UNIVERSAL MEDIA VERIFICATION SUITE         ');
   console.log('===============================================================\n');
+
+  // Authenticate as default user if required
+  try {
+    const loginRes = await req('POST', '/api/auth/login', { email: 'user@test.local', password: 'User@123456' });
+    if (loginRes.headers['set-cookie']) {
+      sessionCookie = loginRes.headers['set-cookie'][0].split(';')[0];
+    }
+  } catch (_) {}
 
   // Reset rate limits
   await req('POST', '/api/test-reset-limits');
@@ -237,6 +255,15 @@ async function runUniversalMediaSuite() {
     assert('YouTube video extraction works as expected', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'video' && res.json?.title, `Resp: ${res.raw}`);
   } catch (e) {
     assert('YouTube extraction', false, e.message);
+  }
+
+  // ── TEST 9: Instagram & Platform Error Classification ──────────────────────
+  console.log('\n--- Category 7: Platform Error Classification (Instagram) ---');
+  try {
+    const res = await req('POST', '/api/info', { url: 'https://www.instagram.com/p/DcPIHc2s9zH/?stkn=MXUwY3NvcG9qZUxzdw==' });
+    assert('Instagram photo post returns specific post error (not generic non-media fallback)', res.statusCode === 400 && res.json?.error === 'This Instagram post does not contain a downloadable video.', `Resp: ${res.raw}`);
+  } catch (e) {
+    assert('Instagram error classification', false, e.message);
   }
 
   console.log('\n===============================================================');

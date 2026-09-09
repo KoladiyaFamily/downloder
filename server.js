@@ -405,20 +405,55 @@ function parseYtDlpError(stderrText, defaultMsg = 'This URL does not contain a s
 
   const lower = stderrText.toLowerCase();
 
-  if (lower.includes('private video') || lower.includes('video is private')) {
+  // Instagram specific errors
+  if (lower.includes('there is no video in this post') || lower.includes('no video in this post')) {
+    return 'This Instagram post does not contain a downloadable video.';
+  }
+  if (lower.includes('[instagram]') && (lower.includes('this post is private') || lower.includes('private account') || lower.includes('account is private'))) {
+    return 'This Instagram post is from a private account and cannot be downloaded.';
+  }
+  if (lower.includes('[instagram]') && (lower.includes('login required') || lower.includes('checkpoint') || lower.includes('challenge') || lower.includes('please log in'))) {
+    return 'Instagram requires login or authentication to access this post.';
+  }
+  if (lower.includes('[instagram]') && (lower.includes('unable to extract') || lower.includes('post unavailable'))) {
+    return 'This Instagram post is unavailable, private, or requires login.';
+  }
+
+  // TikTok specific errors
+  if (lower.includes('[tiktok]') && (lower.includes('private') || lower.includes('login') || lower.includes('not available'))) {
+    return 'This TikTok video is private, restricted, or requires authentication.';
+  }
+
+  // Twitter / X specific errors
+  if ((lower.includes('[twitter]') || lower.includes('[x]')) && (lower.includes('protected') || lower.includes('private') || lower.includes('not authorized') || lower.includes('authorization'))) {
+    return 'This post is from a protected account or requires login.';
+  }
+
+  // Facebook specific errors
+  if (lower.includes('[facebook]') && (lower.includes('private') || lower.includes('login') || lower.includes("isn't available") || lower.includes('not available'))) {
+    return 'This Facebook video is private, restricted, or requires login.';
+  }
+
+  // Reddit specific errors
+  if (lower.includes('[reddit]') && (lower.includes('private') || lower.includes('restricted') || lower.includes('quarantined'))) {
+    return 'This Reddit post is in a private community or restricted.';
+  }
+
+  // Common platform status errors
+  if (lower.includes('private video') || lower.includes('video is private') || lower.includes('this video is private')) {
     return 'This video is private and cannot be downloaded.';
   }
   if (lower.includes('sign in to confirm your age') || lower.includes('age-restricted') || lower.includes('confirm your age')) {
     return 'This video is age-restricted and requires authorization.';
   }
-  if (lower.includes('video unavailable') || lower.includes('video is unavailable') || lower.includes('has been removed')) {
+  if (lower.includes('video unavailable') || lower.includes('video is unavailable') || lower.includes('has been removed') || lower.includes('media unavailable')) {
     return 'This video is unavailable or has been removed.';
   }
-  if (lower.includes('not available in your country') || lower.includes('uploader has not made this video available')) {
+  if (lower.includes('not available in your country') || lower.includes('uploader has not made this video available') || lower.includes('geo-restricted')) {
     return 'This video is geo-restricted and not available in your region.';
   }
-  if (lower.includes('is not a valid url') || lower.includes('unsupported url') || lower.includes('no media found') || lower.includes('generic')) {
-    return 'This URL does not contain a supported downloadable video or image.';
+  if (lower.includes('members-only') || lower.includes('join this channel')) {
+    return 'This video is members-only content and requires authorization.';
   }
   if (lower.includes('copyright') || lower.includes('blocked it on copyright grounds')) {
     return 'This video cannot be downloaded due to copyright restrictions.';
@@ -429,8 +464,14 @@ function parseYtDlpError(stderrText, defaultMsg = 'This URL does not contain a s
   if (lower.includes('http error 403') || lower.includes('403: forbidden') || lower.includes('403 forbidden')) {
     return 'Access to this media resource is restricted or forbidden (403 Forbidden).';
   }
+  if (lower.includes('http error 401') || lower.includes('401: unauthorized') || lower.includes('401 unauthorized')) {
+    return 'Authentication is required to access this media resource (401 Unauthorized).';
+  }
   if (lower.includes('unable to download webpage') || lower.includes('name or service not known') || lower.includes('connection refused')) {
-    return 'Failed to connect to the media host. Please check the URL and try again.';
+    return 'Could not connect to the specified host. Please check the URL and try again.';
+  }
+  if (lower.includes('is not a valid url') || lower.includes('unsupported url') || lower.includes('no media found')) {
+    return 'This URL does not contain a supported downloadable video or image.';
   }
 
   // Extract any specific error line (case-insensitive)
@@ -445,7 +486,7 @@ function parseYtDlpError(stderrText, defaultMsg = 'This URL does not contain a s
     }
   }
 
-  // Fallback to first non-empty line of stderr instead of hiding real error
+  // Fallback to first non-empty line of stderr
   const cleanLines = stderrText.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('[download]'));
   if (cleanLines.length > 0) {
     const firstLine = cleanLines[0].slice(0, 250);
@@ -750,6 +791,16 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
           url: cleanUrl
         });
       } catch (_) {}
+    }
+
+    // If yt-dlp produced an error from a recognized platform extractor (Instagram, TikTok, Twitter, Facebook, Reddit, YouTube, Vimeo, etc.), return the real specific platform error directly!
+    const lowerStderr = stderrData.toLowerCase();
+    const isPlatformExtractor = stderrData.includes('[') && !stderrData.includes('[generic]');
+    const isGenericExtractor = stderrData.includes('[generic]') || lowerStderr.includes('unsupported url');
+
+    if (isPlatformExtractor && !isGenericExtractor) {
+      const userErr = parseYtDlpError(stderrData);
+      return res.status(400).json({ error: userErr });
     }
 
     // Fallback: Safely probe URL directly for direct video/image/audio streams
