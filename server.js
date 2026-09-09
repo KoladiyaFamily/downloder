@@ -722,36 +722,36 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
                                       (!info.duration || info.duration === 0);
 
         if (isImageExt || isGeneric || hasNoRealVideoStreams) {
-          const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-          if (probe.success) {
-            if (probe.mediaType === 'image') {
+          const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
+          if (pageMedia.success) {
+            if (pageMedia.mediaType === 'image') {
               return res.json({
                 success: true,
                 mediaType: 'image',
-                title: (info.title && !isGeneric) ? info.title : (probe.title || 'Image'),
-                thumbnail: cleanUrl,
+                title: (info.title && !isGeneric) ? info.title : (pageMedia.title || 'Image'),
+                thumbnail: pageMedia.thumbnail || cleanUrl,
                 duration: null,
                 durationSec: 0,
-                uploader: info.uploader || parsedUrl.hostname,
+                uploader: info.uploader || pageMedia.uploader || parsedUrl.hostname,
                 qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-                url: cleanUrl
+                url: pageMedia.url || cleanUrl
               });
             }
-            if (probe.mediaType === 'video') {
+            if (pageMedia.mediaType === 'video') {
               return res.json({
                 success: true,
                 mediaType: 'video',
-                title: (info.title && !isGeneric) ? info.title : (probe.title || 'Video'),
-                thumbnail: null,
+                title: (info.title && !isGeneric) ? info.title : (pageMedia.title || 'Video'),
+                thumbnail: pageMedia.thumbnail || null,
                 duration: formatDuration(info.duration),
                 durationSec: info.duration || 0,
-                uploader: info.uploader || parsedUrl.hostname,
+                uploader: info.uploader || pageMedia.uploader || parsedUrl.hostname,
                 qualities: [{ label: 'Original Quality', value: 'direct' }],
-                url: cleanUrl
+                url: pageMedia.url || cleanUrl
               });
             }
           }
-          if (probe.isNonMedia || isGeneric || hasNoRealVideoStreams) {
+          if (pageMedia.isNonMedia || isGeneric || hasNoRealVideoStreams) {
             return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
           }
         }
@@ -793,7 +793,38 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
       } catch (_) {}
     }
 
-    // If yt-dlp produced an error from a recognized platform extractor (Instagram, TikTok, Twitter, Facebook, Reddit, YouTube, Vimeo, etc.), return the real specific platform error directly!
+    // Step 3: When yt-dlp did not extract a video (e.g. photo post, webpage media, or generic), inspect page for actual media
+    const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
+    if (pageMedia.success) {
+      if (pageMedia.mediaType === 'image') {
+        return res.json({
+          success: true,
+          mediaType: 'image',
+          title: pageMedia.title || 'Image',
+          thumbnail: pageMedia.thumbnail || pageMedia.url,
+          duration: null,
+          durationSec: 0,
+          uploader: pageMedia.uploader || parsedUrl.hostname,
+          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
+          url: pageMedia.url
+        });
+      }
+      if (pageMedia.mediaType === 'video') {
+        return res.json({
+          success: true,
+          mediaType: 'video',
+          title: pageMedia.title || 'Video',
+          thumbnail: pageMedia.thumbnail || null,
+          duration: null,
+          durationSec: 0,
+          uploader: pageMedia.uploader || parsedUrl.hostname,
+          qualities: [{ label: 'Original Quality', value: 'direct' }],
+          url: pageMedia.url
+        });
+      }
+    }
+
+    // Step 4: If no media was found on the page, check for specific platform error or declare unsupported
     const lowerStderr = stderrData.toLowerCase();
     const isPlatformExtractor = stderrData.includes('[') && !stderrData.includes('[generic]');
     const isGenericExtractor = stderrData.includes('[generic]') || lowerStderr.includes('unsupported url');
@@ -803,42 +834,11 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
       return res.status(400).json({ error: userErr });
     }
 
-    // Fallback: Safely probe URL directly for direct video/image/audio streams
-    const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-    if (probe.success) {
-      if (probe.mediaType === 'image') {
-        return res.json({
-          success: true,
-          mediaType: 'image',
-          title: probe.title || 'Image',
-          thumbnail: cleanUrl,
-          duration: null,
-          durationSec: 0,
-          uploader: parsedUrl.hostname,
-          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-          url: cleanUrl
-        });
-      }
-      if (probe.mediaType === 'video') {
-        return res.json({
-          success: true,
-          mediaType: 'video',
-          title: probe.title || 'Video',
-          thumbnail: null,
-          duration: null,
-          durationSec: 0,
-          uploader: parsedUrl.hostname,
-          qualities: [{ label: 'Original Quality', value: 'direct' }],
-          url: cleanUrl
-        });
-      }
-    }
-
-    if (probe.isNonMedia) {
+    if (pageMedia.isNonMedia) {
       return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
     }
 
-    const userErr = parseYtDlpError(stderrData, probe.error || 'This URL does not contain a supported downloadable video or image.');
+    const userErr = parseYtDlpError(stderrData, pageMedia.error || 'This URL does not contain a supported downloadable video or image.');
     return res.status(400).json({ error: userErr });
   });
 
@@ -847,24 +847,37 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
     finished = true;
     clearTimeout(timeoutTimer);
 
-    const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-    if (probe.success) {
-      return res.json({
-        success: true,
-        mediaType: probe.mediaType,
-        title: probe.title || 'Media',
-        thumbnail: probe.mediaType === 'image' ? cleanUrl : null,
-        duration: null,
-        durationSec: 0,
-        uploader: parsedUrl.hostname,
-        qualities: [{ label: 'Original Quality', value: 'direct' }],
-        url: cleanUrl
-      });
+    const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
+    if (pageMedia.success) {
+      if (pageMedia.mediaType === 'image') {
+        return res.json({
+          success: true,
+          mediaType: 'image',
+          title: pageMedia.title || 'Image',
+          thumbnail: pageMedia.thumbnail || pageMedia.url,
+          duration: null,
+          durationSec: 0,
+          uploader: pageMedia.uploader || parsedUrl.hostname,
+          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
+          url: pageMedia.url
+        });
+      }
+      if (pageMedia.mediaType === 'video') {
+        return res.json({
+          success: true,
+          mediaType: 'video',
+          title: pageMedia.title || 'Video',
+          thumbnail: pageMedia.thumbnail || null,
+          duration: null,
+          durationSec: 0,
+          uploader: pageMedia.uploader || parsedUrl.hostname,
+          qualities: [{ label: 'Original Quality', value: 'direct' }],
+          url: pageMedia.url
+        });
+      }
     }
 
-    if (!res.headersSent) {
-      res.status(400).json({ error: probe.isNonMedia ? 'This URL does not contain a supported downloadable video or image.' : (probe.error || 'This URL does not contain a supported downloadable video or image.') });
-    }
+    return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
   });
 });
 

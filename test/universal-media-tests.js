@@ -123,6 +123,9 @@ async function runUniversalMediaSuite() {
   console.log('       ANTIGRAVITY UNIVERSAL MEDIA VERIFICATION SUITE         ');
   console.log('===============================================================\n');
 
+  // Reset rate limits first
+  await req('POST', '/api/test-reset-limits');
+
   // Authenticate as default user if required
   try {
     const loginRes = await req('POST', '/api/auth/login', { email: 'user@test.local', password: 'User@123456' });
@@ -130,9 +133,6 @@ async function runUniversalMediaSuite() {
       sessionCookie = loginRes.headers['set-cookie'][0].split(';')[0];
     }
   } catch (_) {}
-
-  // Reset rate limits
-  await req('POST', '/api/test-reset-limits');
 
   // ── TEST 1: Direct Image Inspection & Download (JPEG) ──────────────────────
   console.log('--- Category 1: Direct Image URLs ---');
@@ -257,13 +257,30 @@ async function runUniversalMediaSuite() {
     assert('YouTube extraction', false, e.message);
   }
 
-  // ── TEST 9: Instagram & Platform Error Classification ──────────────────────
-  console.log('\n--- Category 7: Platform Error Classification (Instagram) ---');
+  // ── TEST 9: Instagram Media Post Extraction & Download ────────────────────
+  console.log('\n--- Category 7: Instagram Post Media Extraction ---');
+  await req('POST', '/api/test-reset-limits');
   try {
-    const res = await req('POST', '/api/info', { url: 'https://www.instagram.com/p/DcPIHc2s9zH/?stkn=MXUwY3NvcG9qZUxzdw==' });
-    assert('Instagram photo post returns specific post error (not generic non-media fallback)', res.statusCode === 400 && res.json?.error === 'This Instagram post does not contain a downloadable video.', `Resp: ${res.raw}`);
+    const igUrl = 'https://www.instagram.com/p/DcPIHc2s9zH/?stkn=MXUwY3NvcG9qZUxzdw==';
+    const res = await req('POST', '/api/info', { url: igUrl });
+    assert('Instagram photo post returns 200 with mediaType=image', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'image', `Resp: ${res.raw}`);
+
+    if (res.json?.url) {
+      const prep = await req('POST', '/api/prepare', { url: res.json.url, title: 'elevenlabs_post' });
+      assert('Instagram photo prepare returns downloadToken', prep.statusCode === 200 && prep.json?.downloadToken, `Got: ${prep.raw}`);
+
+      if (prep.json?.downloadToken) {
+        const dest = path.join(os.tmpdir(), `test_ig_${Date.now()}.jpg`);
+        const dl = await downloadMedia(`/api/file/${prep.json.downloadToken}`, dest);
+        assert('Instagram photo downloaded with non-zero size', dl.fileSize > 1000, `Size: ${dl.fileSize}`);
+        const buf = fs.readFileSync(dest);
+        const magic = mediaDetector.detectMagicBytes(buf);
+        assert('Downloaded file verified as genuine JPEG', magic && magic.type === 'image' && magic.ext === '.jpg', `Magic: ${JSON.stringify(magic)}`);
+        try { fs.unlinkSync(dest); } catch (_) {}
+      }
+    }
   } catch (e) {
-    assert('Instagram error classification', false, e.message);
+    assert('Instagram photo post extraction pipeline', false, e.message);
   }
 
   console.log('\n===============================================================');

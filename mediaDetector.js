@@ -602,10 +602,197 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
   });
 }
 
+// ── Webpage Embedded Media Extractor (OpenGraph, Twitter Cards, HTML5 Media) ───
+
+function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\\u0026/g, '&');
+}
+
+function extractPageMedia(targetUrl, maxRedirects = 5) {
+  return new Promise(async (resolve) => {
+    if (maxRedirects < 0) return resolve({ success: false, error: 'Too many redirects.' });
+
+    const ssrf = await validateUrlForSSRF(targetUrl);
+    if (!ssrf.valid) return resolve({ success: false, error: ssrf.reason, isSSRF: true });
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(ssrf.sanitizedUrl);
+    } catch (_) {
+      return resolve({ success: false, error: 'Invalid URL.' });
+    }
+
+    const lib = parsedUrl.protocol === 'https:' ? https : http;
+    const reqOptions = {
+      method: 'GET',
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none'
+      },
+      timeout: 12000
+    };
+
+    const req = lib.request(reqOptions, async (res) => {
+      const statusCode = res.statusCode || 0;
+      if ([301, 302, 303, 307, 308].includes(statusCode) && res.headers['location']) {
+        res.resume();
+        try {
+          const nextUrl = new URL(res.headers['location'], ssrf.sanitizedUrl).href;
+          return resolve(await extractPageMedia(nextUrl, maxRedirects - 1));
+        } catch (_) {
+          return resolve({ success: false, error: 'Invalid redirect location.' });
+        }
+      }
+
+      if (statusCode >= 400) {
+        res.resume();
+        return resolve({ success: false, error: `Remote server returned HTTP ${statusCode}.` });
+      }
+
+      const contentType = (res.headers['content-type'] || '').toLowerCase();
+      if (IMAGE_MIME_MAP[contentType] || VIDEO_MIME_MAP[contentType]) {
+        res.destroy();
+        return resolve(await safeProbeUrl(ssrf.sanitizedUrl));
+      }
+
+      let body = '';
+      res.on('data', (chunk) => {
+        if (body.length < 2 * 1024 * 1024) {
+          body += chunk.toString('utf8');
+        } else {
+          res.destroy();
+        }
+      });
+
+      res.on('close', async () => {
+        // Extract Title
+        let title = '';
+        const titleOg = body.match(/<meta\s+[^>]*property=["']og:title["']\s+content=["']([^"']+)["']/i) ||
+                        body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:title["']/i) ||
+                        body.match(/<meta\s+[^>]*name=["']twitter:title["']\s+content=["']([^"']+)["']/i);
+        const titleTag = body.match(/<title>([^<]+)<\/title>/i);
+        if (titleOg && titleOg[1]) title = decodeHtmlEntities(titleOg[1].trim());
+        else if (titleTag && titleTag[1]) title = decodeHtmlEntities(titleTag[1].trim());
+
+        // Explicitly exclude non-media informational / reference websites
+        const isNonMediaHost = /wikipedia\.org|wikimedia\.org|google\.com|bing\.com|yahoo\.com|github\.com|stackoverflow\.com|gitlab\.com|bitbucket\.org|httpbin\.org/i.test(parsedUrl.hostname);
+        const isMediaHost = !isNonMediaHost && /instagram\.com|facebook\.com|tiktok\.com|reddit\.com|twitter\.com|x\.com|pinterest\.com|imgur\.com|flickr\.com|giphy\.com|tenor\.com|threads\.net|tumblr\.com|vsco\.co|deviantart\.com|snapchat\.com|bilibili\.com|weibo\.com/i.test(parsedUrl.hostname);
+        const hasMediaMeta = !isNonMediaHost && (
+          /<(?:meta\s+name=["']medium["']\s+content=["'](?:image|video)["']|meta\s+property=["']og:type["']\s+content=["'](?:video|video\.[^"']+|photo|image|image\.[^"']+)["'])/i.test(body) ||
+          body.includes('"@type":"VideoObject"') || body.includes('"@type": "VideoObject"')
+        );
+
+        // Only extract embedded page media if it is a media platform or explicit media object
+        if (!isMediaHost && !hasMediaMeta) {
+          return resolve({
+            success: false,
+            isNonMedia: true,
+            error: 'This URL does not contain a supported downloadable video or image.'
+          });
+        }
+
+        // Extract Video Candidates
+        const videoCandidates = [];
+        const ogVideo = body.match(/<meta\s+[^>]*property=["']og:video(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/i) ||
+                        body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:video(?::secure_url|:url)?["']/i);
+        if (ogVideo && ogVideo[1]) videoCandidates.push(decodeHtmlEntities(ogVideo[1]));
+
+        const html5Video = body.match(/<video[^>]*src=["']([^"']+)["']/i) || body.match(/<source[^>]*src=["']([^"']+)["'][^>]*type=["']video\//i);
+        if (html5Video && html5Video[1]) videoCandidates.push(decodeHtmlEntities(html5Video[1]));
+
+        for (const rawCandidate of videoCandidates) {
+          try {
+            const absoluteCandidate = new URL(rawCandidate, ssrf.sanitizedUrl).href;
+            const probe = await safeProbeUrl(absoluteCandidate);
+            if (probe.success && probe.mediaType === 'video') {
+              return resolve({
+                success: true,
+                mediaType: 'video',
+                title: title || probe.title || 'Video',
+                url: absoluteCandidate,
+                thumbnail: null,
+                ext: probe.ext || '.mp4',
+                size: probe.size || 0,
+                uploader: parsedUrl.hostname
+              });
+            }
+          } catch (_) {}
+        }
+
+        // Extract Image Candidates
+        const imageCandidates = [];
+        const ogImage = body.match(/<meta\s+[^>]*property=["']og:image(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/i) ||
+                        body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:image(?::secure_url|:url)?["']/i);
+        if (ogImage && ogImage[1]) imageCandidates.push(decodeHtmlEntities(ogImage[1]));
+
+        const twitterImage = body.match(/<meta\s+[^>]*name=["']twitter:image(?::src)?["']\s+content=["']([^"']+)["']/i) ||
+                              body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+name=["']twitter:image(?::src)?["']/i);
+        if (twitterImage && twitterImage[1]) imageCandidates.push(decodeHtmlEntities(twitterImage[1]));
+
+        const jsonLdMatches = body.match(/"(?:image|thumbnailUrl|contentUrl)"\s*:\s*["']([^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/gi);
+        if (jsonLdMatches) {
+          for (const j of jsonLdMatches) {
+            const m = j.match(/["']([^"']+)["']$/);
+            if (m && m[1]) imageCandidates.push(decodeHtmlEntities(m[1]));
+          }
+        }
+
+        // Probe Image Candidates
+        for (const rawCandidate of imageCandidates) {
+          try {
+            const absoluteCandidate = new URL(rawCandidate, ssrf.sanitizedUrl).href;
+            const probe = await safeProbeUrl(absoluteCandidate);
+            if (probe.success && probe.mediaType === 'image') {
+              return resolve({
+                success: true,
+                mediaType: 'image',
+                title: title || probe.title || 'Image',
+                url: absoluteCandidate,
+                thumbnail: absoluteCandidate,
+                ext: probe.ext || '.jpg',
+                size: probe.size || 0,
+                uploader: parsedUrl.hostname
+              });
+            }
+          } catch (_) {}
+        }
+
+        return resolve({
+          success: false,
+          isNonMedia: true,
+          error: 'This URL does not contain a supported downloadable video or image.'
+        });
+      });
+
+      res.on('error', (err) => resolve({ success: false, error: 'Failed to read webpage: ' + err.message }));
+    });
+
+    req.on('timeout', () => { req.destroy(); resolve({ success: false, error: 'Connection timed out while loading webpage.' }); });
+    req.on('error', (err) => resolve({ success: false, error: 'Could not connect to the specified host: ' + err.message }));
+    req.end();
+  });
+}
+
 module.exports = {
   validateUrlForSSRF,
   detectMagicBytes,
   safeProbeUrl,
+  extractPageMedia,
   downloadDirectMediaWithProgress,
   IMAGE_MIME_MAP,
   VIDEO_MIME_MAP
