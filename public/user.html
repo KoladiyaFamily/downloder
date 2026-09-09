@@ -114,46 +114,46 @@
 
     <div class="header">
       <div class="logo-badge private-badge"><span>🔒</span> Private Deployment</div>
-      <h1 class="title">Video Downloader</h1>
-      <p class="subtitle">Paste a supported video URL to inspect, select quality, and download.</p>
+      <h1 class="title">Media Downloader</h1>
+      <p class="subtitle">Paste any supported video, image, or media URL to inspect and download.</p>
     </div>
 
     <div class="card">
       <form id="urlForm" class="input-group">
         <div class="input-wrapper">
-          <input id="urlInput" type="url" class="input-field" placeholder="https://www.youtube.com/watch?v=..." required autocomplete="off" spellcheck="false" />
+          <input id="urlInput" type="url" class="input-field" placeholder="https://www.youtube.com/watch?v=... or any video / image URL" required autocomplete="off" spellcheck="false" />
         </div>
         <button id="getBtn" type="submit" class="btn">
           <span id="getBtnSpinner" class="spinner" style="display:none;"></span>
-          <span id="getBtnText">Get Video</span>
+          <span id="getBtnText">Get Media</span>
         </button>
       </form>
 
-      <div id="errorAlert" class="alert"><span>⚠️</span><span id="errorMessage">Could not process this video URL.</span></div>
+      <div id="errorAlert" class="alert"><span>⚠️</span><span id="errorMessage">Could not process this URL.</span></div>
 
       <div id="previewCard" class="preview-card">
         <div class="thumbnail-container">
-          <img id="previewThumbnail" class="thumbnail-img" src="" alt="Video thumbnail" />
+          <img id="previewThumbnail" class="thumbnail-img" src="" alt="Media thumbnail" />
           <span id="previewDuration" class="duration-badge" style="display:none;">00:00</span>
         </div>
         <div class="video-info">
-          <h2 id="previewTitle" class="video-title">Video Title</h2>
-          <div id="previewUploader" class="video-uploader">Channel Name</div>
+          <h2 id="previewTitle" class="video-title">Media Title</h2>
+          <div id="previewUploader" class="video-uploader">Source Name</div>
         </div>
 
-        <div class="quality-wrapper">
+        <div id="qualityWrapper" class="quality-wrapper">
           <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
           <select id="qualitySelect" class="select-field"><option value="best">Best Quality</option></select>
         </div>
 
         <button id="downloadBtn" class="btn btn-download">
           <span id="downloadBtnSpinner" class="spinner" style="display:none;"></span>
-          <span id="downloadBtnText">Download Video</span>
+          <span id="downloadBtnText">Download</span>
         </button>
 
         <div id="progressBox" class="progress-box" style="display:none;">
           <div class="progress-header">
-            <span id="progressStage" class="progress-stage">Downloading Video</span>
+            <span id="progressStage" class="progress-stage">Downloading Media</span>
             <span id="progressPercent" class="progress-percent">0%</span>
           </div>
           <div class="progress-track"><div id="progressBar" class="progress-fill" style="width:0%;"></div></div>
@@ -168,7 +168,7 @@
           <span id="createClipsText">✨ Create Viral Clips</span>
         </button>
 
-        <button id="resetBtn" class="btn btn-secondary">Download Another Video</button>
+        <button id="resetBtn" class="btn btn-secondary">Download Another Media</button>
 
         <div id="clipsSection" class="clips-section">
           <div class="clips-title-bar">
@@ -213,6 +213,7 @@
     const previewDuration = document.getElementById('previewDuration');
     const previewTitle = document.getElementById('previewTitle');
     const previewUploader = document.getElementById('previewUploader');
+    const qualityWrapper = document.getElementById('qualityWrapper');
     const qualitySelect = document.getElementById('qualitySelect');
     const downloadBtn = document.getElementById('downloadBtn');
     const downloadBtnSpinner = document.getElementById('downloadBtnSpinner');
@@ -242,11 +243,11 @@
       if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
       progressBox.style.display = 'none';
       progressBar.style.width = '0%'; progressPercent.textContent = '0%';
-      progressStage.textContent = 'Downloading Video'; progressBytes.textContent = ''; progressNetwork.textContent = '';
+      progressStage.textContent = 'Downloading Media'; progressBytes.textContent = ''; progressNetwork.textContent = '';
     }
     function setGetLoading(loading) {
       if (loading) { getBtn.disabled = true; getBtnSpinner.style.display = 'inline-block'; getBtnText.textContent = 'Processing...'; urlInput.disabled = true; }
-      else { getBtn.disabled = false; getBtnSpinner.style.display = 'none'; getBtnText.textContent = 'Get Video'; urlInput.disabled = false; }
+      else { getBtn.disabled = false; getBtnSpinner.style.display = 'none'; getBtnText.textContent = 'Get Media'; urlInput.disabled = false; }
     }
 
     btnAspectOriginal.addEventListener('click', () => { isVerticalMode = false; btnAspectOriginal.classList.add('active'); btnAspectVertical.classList.remove('active'); });
@@ -257,81 +258,152 @@
       previewCard.classList.remove('active'); clipsSection.classList.remove('active');
       clipsGrid.innerHTML = ''; currentVideoData = null;
       const url = urlInput.value.trim();
-      if (!url) { showError('Please paste a video URL.'); return; }
+      if (!url) { showError('Please paste a media URL.'); return; }
       setGetLoading(true);
       try {
         const res = await fetch('/api/info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ url }) });
         if (res.status === 401) { window.location.replace('/login'); return; }
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to process video.');
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to process media.');
         currentVideoData = data;
         previewTitle.textContent = data.title;
-        previewUploader.textContent = data.uploader ? `Channel: ${data.uploader}` : '';
-        if (data.thumbnail) { previewThumbnail.src = data.thumbnail; previewThumbnail.style.display = 'block'; } else { previewThumbnail.style.display = 'none'; }
-        if (data.duration) { previewDuration.textContent = data.duration; previewDuration.style.display = 'inline-block'; } else { previewDuration.style.display = 'none'; }
-        qualitySelect.innerHTML = '';
-        (Array.isArray(data.qualities) && data.qualities.length > 0 ? data.qualities : [{ label:'Best Quality', value:'best' }]).forEach(q => {
-          const opt = document.createElement('option'); opt.value = q.value; opt.textContent = q.label; qualitySelect.appendChild(opt);
-        });
-        downloadBtn.disabled = false; downloadBtnSpinner.style.display = 'none'; downloadBtnText.textContent = 'Download Video';
-        createClipsBtn.disabled = false; createClipsSpinner.style.display = 'none'; createClipsText.textContent = '✨ Create Viral Clips';
+        previewUploader.textContent = data.uploader ? (data.mediaType === 'image' ? `Source: ${data.uploader}` : `Channel: ${data.uploader}`) : '';
+        
+        if (data.thumbnail) {
+          previewThumbnail.src = data.thumbnail;
+          previewThumbnail.style.display = 'block';
+        } else {
+          previewThumbnail.style.display = 'none';
+        }
+
+        if (data.mediaType === 'image') {
+          previewDuration.style.display = 'none';
+          qualityWrapper.style.display = 'none';
+          createClipsBtn.style.display = 'none';
+          downloadBtn.disabled = false;
+          downloadBtnSpinner.style.display = 'none';
+          downloadBtnText.textContent = 'Download Image';
+        } else {
+          if (data.duration) {
+            previewDuration.textContent = data.duration;
+            previewDuration.style.display = 'inline-block';
+          } else {
+            previewDuration.style.display = 'none';
+          }
+          qualityWrapper.style.display = 'block';
+          qualitySelect.innerHTML = '';
+          (Array.isArray(data.qualities) && data.qualities.length > 0 ? data.qualities : [{ label:'Best Quality', value:'best' }]).forEach(q => {
+            const opt = document.createElement('option'); opt.value = q.value; opt.textContent = q.label; qualitySelect.appendChild(opt);
+          });
+          downloadBtn.disabled = false;
+          downloadBtnSpinner.style.display = 'none';
+          downloadBtnText.textContent = 'Download Video';
+          createClipsBtn.style.display = 'inline-flex';
+          createClipsBtn.disabled = false;
+          createClipsSpinner.style.display = 'none';
+          createClipsText.textContent = '✨ Create Viral Clips';
+        }
+
         previewCard.classList.add('active');
-      } catch (err) { showError(err.message && !err.message.includes('object') ? err.message : 'Unable to process this URL.'); }
+      } catch (err) { showError(err.message && !err.message.includes('object') ? err.message : 'This URL does not contain a supported downloadable video or image.'); }
       finally { setGetLoading(false); }
     });
 
     downloadBtn.addEventListener('click', () => {
       if (!currentVideoData || !currentVideoData.url) return;
       clearError(); resetProgressUI();
-      const selectedQuality = qualitySelect.value || 'best';
-      downloadBtn.disabled = true; downloadBtnSpinner.style.display = 'inline-block'; downloadBtnText.textContent = 'Preparing video...';
-      progressBox.style.display = 'block'; progressStage.textContent = 'Preparing video...'; progressPercent.textContent = '0%';
-      progressBar.style.width = '0%'; progressBytes.textContent = 'Initializing media streams...'; progressNetwork.textContent = '';
+      const isImage = currentVideoData.mediaType === 'image';
+      const selectedQuality = qualitySelect ? (qualitySelect.value || 'best') : 'best';
+      
+      downloadBtn.disabled = true;
+      downloadBtnSpinner.style.display = 'inline-block';
+      downloadBtnText.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+      
+      progressBox.style.display = 'block';
+      progressStage.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+      progressPercent.textContent = '0%';
+      progressBar.style.width = '0%';
+      progressBytes.textContent = 'Initializing media transfer...';
+      progressNetwork.textContent = '';
+
       const sseUrl = `/api/prepare-stream?url=${encodeURIComponent(currentVideoData.url)}&title=${encodeURIComponent(currentVideoData.title || '')}&quality=${encodeURIComponent(selectedQuality)}`;
       activeEventSource = new EventSource(sseUrl);
       activeEventSource.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.stage === 'preparing') { downloadBtnText.textContent = 'Preparing video...'; progressStage.textContent = 'Preparing video...'; progressBytes.textContent = 'Initializing media streams...'; }
-          else if (data.stage === 'downloading') {
+          if (data.stage === 'preparing') {
+            downloadBtnText.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+            progressStage.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+            progressBytes.textContent = 'Initializing transfer...';
+          } else if (data.stage === 'downloading') {
             const pct = data.percent !== undefined ? data.percent : 0;
-            downloadBtnText.textContent = `Downloading ${pct}%`; progressStage.textContent = 'Downloading video...';
-            progressPercent.textContent = `${pct}%`; progressBar.style.width = `${pct}%`;
+            downloadBtnText.textContent = `Downloading ${pct}%`;
+            progressStage.textContent = isImage ? 'Downloading image...' : 'Downloading video...';
+            progressPercent.textContent = `${pct}%`;
+            progressBar.style.width = `${pct}%`;
             if (data.downloaded && data.totalSize) progressBytes.textContent = `${data.downloaded} / ${data.totalSize}`;
             else if (data.totalSize) progressBytes.textContent = `Total: ${data.totalSize}`;
             else progressBytes.textContent = 'Calculating size...';
             const parts = []; if (data.speed) parts.push(`Speed: ${data.speed}`); if (data.eta) parts.push(`ETA: ${data.eta}`);
             progressNetwork.textContent = parts.join(' | ');
-          } else if (data.stage === 'merging') { downloadBtnText.textContent = 'Merging video + audio...'; progressStage.textContent = 'Merging video + audio...'; progressBytes.textContent = data.detail || 'Merging with FFmpeg...'; progressNetwork.textContent = ''; }
-          else if (data.stage === 'validating') { downloadBtnText.textContent = 'Validating video...'; progressStage.textContent = 'Validating video...'; progressBytes.textContent = data.detail || 'Verifying video streams...'; progressNetwork.textContent = ''; }
-          else if (data.stage === 'ready') {
+          } else if (data.stage === 'merging') {
+            downloadBtnText.textContent = 'Merging media streams...';
+            progressStage.textContent = 'Merging media streams...';
+            progressBytes.textContent = data.detail || 'Merging with FFmpeg...';
+            progressNetwork.textContent = '';
+          } else if (data.stage === 'validating') {
+            downloadBtnText.textContent = 'Validating media...';
+            progressStage.textContent = 'Validating media...';
+            progressBytes.textContent = data.detail || 'Verifying media streams...';
+            progressNetwork.textContent = '';
+          } else if (data.stage === 'ready') {
             if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
-            downloadBtnText.textContent = 'Complete'; downloadBtnSpinner.style.display = 'none';
-            progressStage.textContent = 'Complete'; progressPercent.textContent = '100%'; progressBar.style.width = '100%';
-            progressBytes.textContent = '✔ Download ready! Starting browser transfer...'; progressNetwork.textContent = '';
+            downloadBtnText.textContent = 'Complete';
+            downloadBtnSpinner.style.display = 'none';
+            progressStage.textContent = 'Complete';
+            progressPercent.textContent = '100%';
+            progressBar.style.width = '100%';
+            progressBytes.textContent = '✔ Download ready! Starting browser transfer...';
+            progressNetwork.textContent = '';
             const fileUrl = `/api/file/${encodeURIComponent(data.downloadToken)}`;
-            const a = document.createElement('a'); a.href = fileUrl; a.download = data.filename || 'video.mp4';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setTimeout(() => { downloadBtn.disabled = false; downloadBtnText.textContent = 'Download Video'; }, 4000);
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = data.filename || (isImage ? 'image.jpg' : 'video.mp4');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => {
+              downloadBtn.disabled = false;
+              downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+            }, 4000);
           } else if (data.stage === 'error') {
             if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
-            progressBox.style.display = 'none'; downloadBtn.disabled = false; downloadBtnSpinner.style.display = 'none'; downloadBtnText.textContent = 'Download Video';
-            showError(data.error || 'Unable to prepare this video.');
+            progressBox.style.display = 'none';
+            downloadBtn.disabled = false;
+            downloadBtnSpinner.style.display = 'none';
+            downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+            showError(data.error || 'Unable to prepare this media resource.');
           }
         } catch (_) {}
       };
       activeEventSource.onerror = () => {
         if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
-        progressBox.style.display = 'none'; downloadBtn.disabled = false; downloadBtnSpinner.style.display = 'none'; downloadBtnText.textContent = 'Download Video';
-        showError('Unable to prepare this video. Please try again.');
+        progressBox.style.display = 'none';
+        downloadBtn.disabled = false;
+        downloadBtnSpinner.style.display = 'none';
+        downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+        showError('Unable to prepare this media resource. Please try again.');
       };
     });
 
     createClipsBtn.addEventListener('click', async () => {
       if (!currentVideoData || !currentVideoData.url) return;
-      clearError(); createClipsBtn.disabled = true; createClipsSpinner.style.display = 'inline-block';
+      clearError();
+      createClipsBtn.disabled = true;
+      createClipsSpinner.style.display = 'inline-block';
       createClipsText.textContent = 'Analyzing video & generating clips...';
-      clipsSection.classList.remove('active'); clipsGrid.innerHTML = '';
+      clipsSection.classList.remove('active');
+      clipsGrid.innerHTML = '';
       try {
         const res = await fetch('/api/clips/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ url: currentVideoData.url, title: currentVideoData.title, isVertical: isVerticalMode }) });
         if (res.status === 401) { window.location.replace('/login'); return; }
@@ -349,8 +421,14 @@
     });
 
     resetBtn.addEventListener('click', () => {
-      resetProgressUI(); previewCard.classList.remove('active'); clipsSection.classList.remove('active');
-      clipsGrid.innerHTML = ''; clearError(); urlInput.value = ''; urlInput.focus(); currentVideoData = null;
+      resetProgressUI();
+      previewCard.classList.remove('active');
+      clipsSection.classList.remove('active');
+      clipsGrid.innerHTML = '';
+      clearError();
+      urlInput.value = '';
+      urlInput.focus();
+      currentVideoData = null;
     });
   </script>
 </body>
