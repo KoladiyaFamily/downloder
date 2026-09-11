@@ -7,7 +7,9 @@ const crypto = require('crypto');
 const { spawn, spawnSync } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
 const session = require('express-session');
+const multer = require('multer');
 const viralClipsEngine = require('./viralClipsEngine');
+const watermarkEngine = require('./watermarkEngine');
 const mediaDetector = require('./mediaDetector');
 const authDb = require('./auth/db');
 const { requireAuth, requireAdmin, requireUser } = require('./auth/middleware');
@@ -1491,6 +1493,274 @@ app.get('/api/clips/:clipId/download', requireAuth, (req, res) => {
   res.setHeader('Content-Length', clip.size);
   res.setHeader('Content-Disposition', `attachment; filename="${clip.filename}"`);
   const stream = fs.createReadStream(clip.filePath);
+  stream.pipe(res);
+  const cleanStream = () => { try { if (!stream.destroyed) stream.destroy(); } catch (_) {} };
+  res.on('finish', cleanStream);
+  res.on('close', cleanStream);
+});
+
+// ==========================================
+// WATERMARK REMOVER API ENDPOINTS
+// ==========================================
+
+const watermarkUpload = multer({
+  dest: watermarkEngine.WATERMARK_TEMP_DIR,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100 MB max
+  }
+});
+
+function handleMulterUpload(req, res, next) {
+  watermarkUpload.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File is too large. Maximum size is 100MB for video and 25MB for image.' });
+      }
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ error: `Upload failed: ${err.message}` });
+    }
+    next();
+  });
+}
+
+// POST /api/watermark/upload
+app.post('/api/watermark/upload', requireAuth, rateLimiter(20, 60 * 1000), handleMulterUpload, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No media file provided.' });
+  }
+
+  const validation = watermarkEngine.validateUploadedFile(req.file);
+  if (!validation.valid) {
+    try { fs.unlinkSync(req.file.path); } catch (_) {}
+    return res.status(400).json({ error: validation.error });
+  }
+
+  const fileId = crypto.randomUUID().replace(/-/g, '');
+  const originalExt = validation.ext;
+  const originalFilename = req.file.originalname || `media${originalExt}`;
+  const uploadedPath = req.file.path;
+  const mediaType = validation.mediaType;
+
+  try {
+    const probe = await watermarkEngine.probeMedia(uploadedPath);
+    let previewPath = uploadedPath;
+    let previewExt = originalExt;
+
+    if (mediaType === 'video') {
+      previewPath = path.join(watermarkEngine.WATERMARK_TEMP_DIR, `preview_${fileId}.jpg`);
+      await watermarkEngine.extractVideoKeyframe(uploadedPath, previewPath);
+      previewExt = '.jpg';
+    }
+
+    watermarkEngine.uploadedFiles.set(fileId, {
+      fileId,
+      filePath: uploadedPath,
+      previewPath,
+      previewExt,
+      mediaType,
+      originalFilename,
+      originalExt,
+      width: probe.width || 0,
+      height: probe.height || 0,
+      durationSec: probe.durationSec || 0,
+      fps: probe.fps || 30,
+      hasAudio: probe.hasAudio,
+      createdAt: Date.now()
+    });
+
+    return res.json({
+      success: true,
+      fileId,
+      mediaType,
+      width: probe.width || 0,
+      height: probe.height || 0,
+      durationSec: probe.durationSec || 0,
+      fps: probe.fps || 30,
+      hasAudio: probe.hasAudio,
+      previewUrl: `/api/watermark/preview/${fileId}`,
+      filename: originalFilename
+    });
+  } catch (err) {
+    try { fs.unlinkSync(uploadedPath); } catch (_) {}
+    return res.status(500).json({ error: `Failed to process uploaded media: ${err.message}` });
+  }
+});
+
+// GET /api/watermark/preview/:fileId
+app.get('/api/watermark/preview/:fileId', requireAuth, (req, res) => {
+  const { fileId } = req.params;
+  const item = watermarkEngine.uploadedFiles.get(fileId);
+  if (!item || !fs.existsSync(item.previewPath)) {
+    return res.status(404).json({ error: 'Preview not found or expired.' });
+  }
+
+  const ext = path.extname(item.previewPath).toLowerCase();
+  const mimeMap = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.gif': 'image/gif'
+  };
+  res.setHeader('Content-Type', mimeMap[ext] || 'image/jpeg');
+  res.setHeader('Cache-Control', 'no-store');
+  const stream = fs.createReadStream(item.previewPath);
+  stream.pipe(res);
+});
+
+// POST /api/watermark/process
+app.post('/api/watermark/process', requireAuth, rateLimiter(15, 60 * 1000), async (req, res) => {
+  const { fileId, box, mode = 'static', inpaintMethod = 'telea' } = req.body || {};
+
+  if (!fileId || typeof fileId !== 'string') {
+    return res.status(400).json({ error: 'fileId is required.' });
+  }
+
+  const item = watermarkEngine.uploadedFiles.get(fileId);
+  if (!item || !fs.existsSync(item.filePath)) {
+    return res.status(404).json({ error: 'Uploaded file not found or expired. Please upload again.' });
+  }
+
+  if (!box || typeof box !== 'object') {
+    return res.status(400).json({ error: 'Watermark selection box is required.' });
+  }
+
+  const x = parseFloat(box.x);
+  const y = parseFloat(box.y);
+  const w = parseFloat(box.width);
+  const h = parseFloat(box.height);
+
+  if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+    return res.status(400).json({ error: 'Invalid watermark selection coordinates.' });
+  }
+
+  const processId = crypto.randomUUID().replace(/-/g, '');
+  const outExt = item.mediaType === 'video' ? '.mp4' : item.originalExt;
+  const outputPath = path.join(watermarkEngine.WATERMARK_TEMP_DIR, `clean_${processId}${outExt}`);
+  const cleanBox = { x, y, width: w, height: h };
+
+  try {
+    if (item.mediaType === 'image') {
+      await watermarkEngine.inpaintImage({
+        inputPath: item.filePath,
+        outputPath,
+        box: cleanBox,
+        method: inpaintMethod
+      });
+    } else {
+      if (mode === 'moving') {
+        await watermarkEngine.inpaintVideoTracking({
+          inputPath: item.filePath,
+          outputPath,
+          box: cleanBox,
+          method: inpaintMethod
+        });
+      } else {
+        await watermarkEngine.inpaintWithFFmpegDelogo(
+          item.filePath,
+          outputPath,
+          cleanBox,
+          false
+        );
+      }
+    }
+
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('Processed output file was not generated.');
+    }
+
+    // Extract preview for processed video
+    let resultPreviewPath = outputPath;
+    if (item.mediaType === 'video') {
+      resultPreviewPath = path.join(watermarkEngine.WATERMARK_TEMP_DIR, `result_preview_${processId}.jpg`);
+      await watermarkEngine.extractVideoKeyframe(outputPath, resultPreviewPath);
+    }
+
+    const stat = fs.statSync(outputPath);
+
+    watermarkEngine.processedJobs.set(processId, {
+      processId,
+      fileId,
+      outputPath,
+      resultPreviewPath,
+      mediaType: item.mediaType,
+      originalFilename: item.originalFilename,
+      outExt,
+      size: stat.size,
+      createdAt: Date.now()
+    });
+
+    return res.json({
+      success: true,
+      processId,
+      mediaType: item.mediaType,
+      originalPreviewUrl: `/api/watermark/preview/${fileId}`,
+      resultPreviewUrl: `/api/watermark/result-preview/${processId}`,
+      downloadUrl: `/api/watermark/download/${processId}`,
+      size: stat.size
+    });
+  } catch (err) {
+    console.error('Watermark removal process failed:', err);
+    return res.status(500).json({ error: `Watermark removal failed: ${err.message}` });
+  }
+});
+
+// GET /api/watermark/result-preview/:processId
+app.get('/api/watermark/result-preview/:processId', requireAuth, (req, res) => {
+  const { processId } = req.params;
+  const job = watermarkEngine.processedJobs.get(processId);
+  if (!job || !fs.existsSync(job.resultPreviewPath)) {
+    return res.status(404).json({ error: 'Result preview not found or expired.' });
+  }
+
+  const ext = path.extname(job.resultPreviewPath).toLowerCase();
+  const mimeMap = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.gif': 'image/gif'
+  };
+  res.setHeader('Content-Type', mimeMap[ext] || 'image/jpeg');
+  res.setHeader('Cache-Control', 'no-store');
+  const stream = fs.createReadStream(job.resultPreviewPath);
+  stream.pipe(res);
+});
+
+// GET /api/watermark/download/:processId
+app.get('/api/watermark/download/:processId', requireAuth, (req, res) => {
+  const { processId } = req.params;
+  const job = watermarkEngine.processedJobs.get(processId);
+  if (!job || !fs.existsSync(job.outputPath)) {
+    return res.status(404).json({ error: 'Processed file not found or expired.' });
+  }
+
+  const baseName = path.parse(job.originalFilename).name;
+  const downloadFilename = `clean_${baseName}${job.outExt}`;
+  const ext = job.outExt.toLowerCase();
+
+  const mimeMap = {
+    '.mp4': 'video/mp4',
+    '.mov': 'video/quicktime',
+    '.webm': 'video/webm',
+    '.mkv': 'video/x-matroska',
+    '.avi': 'video/x-msvideo',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.gif': 'image/gif'
+  };
+
+  res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  res.setHeader('Content-Length', job.size);
+  res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+
+  const stream = fs.createReadStream(job.outputPath);
   stream.pipe(res);
   const cleanStream = () => { try { if (!stream.destroyed) stream.destroy(); } catch (_) {} };
   res.on('finish', cleanStream);

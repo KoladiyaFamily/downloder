@@ -90,11 +90,11 @@ function main() {
   let targetPython = null;
 
   if (venvCreated && fs.existsSync(venvPython)) {
-    console.log(`\nInstalling yt-dlp and dependencies into ${venvPython}...`);
-    let pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi']);
+    console.log(`\nInstalling yt-dlp and media processing dependencies into ${venvPython}...`);
+    let pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi', 'opencv-python-headless', 'numpy', 'pillow']);
     if (!pipOk) {
       runCmd(basePython, ['-m', 'ensurepip', '--upgrade']);
-      pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi']);
+      pipOk = runCmd(venvPython, ['-m', 'pip', 'install', '--no-cache-dir', '-U', 'yt-dlp', 'curl-cffi', 'opencv-python-headless', 'numpy', 'pillow']);
     }
 
     if (verifyYtDlp(venvPython)) {
@@ -104,8 +104,8 @@ function main() {
 
   // Fallback 1: Install to system / user Python if venv pip failed
   if (!targetPython) {
-    console.log('\nFallback: Installing yt-dlp via base Python pip...');
-    runCmd(basePython, ['-m', 'pip', 'install', '--no-cache-dir', '--break-system-packages', '-U', 'yt-dlp', 'curl-cffi']);
+    console.log('\nFallback: Installing yt-dlp and media processing dependencies via base Python pip...');
+    runCmd(basePython, ['-m', 'pip', 'install', '--no-cache-dir', '--break-system-packages', '-U', 'yt-dlp', 'curl-cffi', 'opencv-python-headless', 'numpy', 'pillow']);
     if (verifyYtDlp(basePython)) {
       targetPython = basePython;
     }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <title>Antigravity Video Downloader</title>
+  <title>Antigravity Media Studio</title>
   <style>
     :root {
       --bg: #090d16; --card-bg: rgba(18, 24, 38, 0.92); --card-border: rgba(255, 255, 255, 0.08);
@@ -14,24 +14,32 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg); background-image: radial-gradient(at 0% 0%, rgba(99,102,241,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16,185,129,0.08) 0px, transparent 50%); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
-    .container { width: 100%; max-width: 640px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 24px; position: relative; }
+    .container { width: 100%; max-width: 680px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 20px; position: relative; }
     .logo-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); color: #a5b4fc; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.03em; margin-bottom: 12px; }
     .private-badge { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.35); color: #fbbf24; }
     .title { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .subtitle { color: var(--text-muted); font-size: 0.95rem; line-height: 1.4; }
+    
     /* User nav bar */
     .user-nav { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .nav-link { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: var(--text-muted); text-decoration: none; transition: all 0.15s; }
     .nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
     .nav-link.logout { border-color: rgba(239,68,68,0.2); color: #f87171; background: rgba(239,68,68,0.07); }
     .nav-link.logout:hover { background: rgba(239,68,68,0.15); }
+
+    /* Mode Navigation Tabs */
+    .tabs-nav { display: flex; background: rgba(10, 14, 23, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius-md); padding: 4px; gap: 6px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 10px 14px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .tab-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+    .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 20px 40px -15px rgba(0,0,0,0.5); }
     .input-group { display: flex; flex-direction: column; gap: 12px; }
     .input-field { width: 100%; background: rgba(10,14,23,0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md); color: #fff; font-size: 0.95rem; padding: 14px 16px; outline: none; transition: all 0.2s ease; }
     .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
     .select-field { width: 100%; background: rgba(10,14,23,0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md); color: #fff; font-size: 0.95rem; padding: 12px 16px; outline: none; cursor: pointer; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: var(--radius-md); font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s ease; color: #fff; background: var(--primary); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: var(--radius-md); font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s ease; color: #fff; background: var(--primary); text-decoration: none; }
     .btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .btn-download { background: var(--success); font-size: 1.05rem; padding: 15px; }
@@ -81,12 +89,154 @@
     .clip-video { width: 100%; border-radius: 6px; background: #000; max-height: 260px; }
     .clip-actions { display: flex; gap: 8px; margin-top: 4px; }
     .btn-clip-dl { flex: 1; padding: 10px; font-size: 0.88rem; background: var(--success); }
+
+    /* Watermark Remover UI Components */
+    .wm-dropzone {
+      border: 2px dashed rgba(99, 102, 241, 0.4);
+      border-radius: var(--radius-md);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(99, 102, 241, 0.04);
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .wm-dropzone:hover, .wm-dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.12);
+      transform: scale(1.01);
+    }
+    .wm-drop-icon { font-size: 2.6rem; margin-bottom: 4px; }
+    .wm-drop-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .wm-drop-sub { font-size: 0.85rem; color: var(--text-muted); max-width: 440px; line-height: 1.4; }
+    .wm-badges { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+    .wm-tag { font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: #cbd5e1; }
+
+    .wm-canvas-container {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-bottom: 16px;
+      user-select: none;
+      touch-action: none;
+    }
+    .wm-preview-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      pointer-events: none;
+    }
+    .wm-selection-box {
+      position: absolute;
+      border: 2px solid #818cf8;
+      background: rgba(99, 102, 241, 0.3);
+      cursor: move;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+    .wm-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border: 2px solid #4f46e5;
+      border-radius: 2px;
+    }
+    .wm-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+    .wm-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+    .wm-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .wm-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+    .wm-handle-n { top: -6px; left: calc(50% - 5px); cursor: ns-resize; }
+    .wm-handle-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
+    .wm-handle-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
+    .wm-handle-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; }
+    
+    .wm-coord-badge {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: rgba(0, 0, 0, 0.85);
+      color: #38bdf8;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .wm-controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wm-presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn-preset {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #cbd5e1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-preset:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+    .wm-options-box {
+      background: rgba(10, 14, 23, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .wm-option-group {
+      flex: 1;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .wm-opt-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+
+    .wm-result-media {
+      width: 100%;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+      margin-bottom: 14px;
+    }
+    .wm-result-img, .wm-result-vid {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain;
+      display: block;
+    }
+
     .footer { text-align: center; margin-top: 24px; font-size: 0.8rem; color: #6b7280; }
 
     /* Responsive Media Queries */
     @media (max-width: 640px) {
       body { padding: 14px 10px; }
-      .header { margin-bottom: 18px; }
+      .header { margin-bottom: 14px; }
       .title { font-size: 1.6rem; }
       .subtitle { font-size: 0.88rem; }
       .card { padding: 16px 12px; border-radius: 14px; }
@@ -101,6 +251,9 @@
       .clip-card { padding: 12px; }
       .clip-actions { flex-direction: column; width: 100%; }
       .btn-clip-dl { width: 100%; min-height: 44px; }
+      .wm-dropzone { padding: 24px 12px; }
+      .wm-drop-title { font-size: 1rem; }
+      .wm-options-box { flex-direction: column; gap: 10px; }
     }
   </style>
 </head>
@@ -113,76 +266,212 @@
     </div>
 
     <div class="header">
-      <div class="logo-badge private-badge"><span>🔒</span> Private Deployment</div>
-      <h1 class="title">Media Downloader</h1>
-      <p class="subtitle">Paste any supported video, image, or media URL to inspect and download.</p>
+      <div class="logo-badge private-badge"><span>🔒</span> Private Studio</div>
+      <h1 class="title">Media Studio</h1>
+      <p class="subtitle">Universal media downloader and AI-powered watermark inpainting.</p>
     </div>
 
+    <!-- Mode Navigation Tabs -->
+    <div class="tabs-nav">
+      <button id="tabDownloader" class="tab-btn active" type="button">📥 Media Downloader</button>
+      <button id="tabWatermark" class="tab-btn" type="button">✨ Watermark Remover</button>
+    </div>
+
+    <!-- MAIN STUDIO CARD -->
     <div class="card">
-      <form id="urlForm" class="input-group">
-        <div class="input-wrapper">
-          <input id="urlInput" type="url" class="input-field" placeholder="https://www.youtube.com/watch?v=... or any video / image URL" required autocomplete="off" spellcheck="false" />
-        </div>
-        <button id="getBtn" type="submit" class="btn">
-          <span id="getBtnSpinner" class="spinner" style="display:none;"></span>
-          <span id="getBtnText">Get Media</span>
-        </button>
-      </form>
-
-      <div id="errorAlert" class="alert"><span>⚠️</span><span id="errorMessage">Could not process this URL.</span></div>
-
-      <div id="previewCard" class="preview-card">
-        <div class="thumbnail-container">
-          <img id="previewThumbnail" class="thumbnail-img" src="" alt="Media thumbnail" />
-          <span id="previewDuration" class="duration-badge" style="display:none;">00:00</span>
-        </div>
-        <div class="video-info">
-          <h2 id="previewTitle" class="video-title">Media Title</h2>
-          <div id="previewUploader" class="video-uploader">Source Name</div>
-        </div>
-
-        <div id="qualityWrapper" class="quality-wrapper">
-          <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
-          <select id="qualitySelect" class="select-field"><option value="best">Best Quality</option></select>
-        </div>
-
-        <button id="downloadBtn" class="btn btn-download">
-          <span id="downloadBtnSpinner" class="spinner" style="display:none;"></span>
-          <span id="downloadBtnText">Download</span>
-        </button>
-
-        <div id="progressBox" class="progress-box" style="display:none;">
-          <div class="progress-header">
-            <span id="progressStage" class="progress-stage">Downloading Media</span>
-            <span id="progressPercent" class="progress-percent">0%</span>
+      
+      <!-- ============================================== -->
+      <!-- SECTION 1: MEDIA DOWNLOADER                    -->
+      <!-- ============================================== -->
+      <div id="downloaderView">
+        <form id="urlForm" class="input-group">
+          <div class="input-wrapper">
+            <input id="urlInput" type="url" class="input-field" placeholder="https://www.youtube.com/watch?v=... or any video / image URL" required autocomplete="off" spellcheck="false" />
           </div>
-          <div class="progress-track"><div id="progressBar" class="progress-fill" style="width:0%;"></div></div>
-          <div class="progress-stats">
-            <span id="progressBytes" class="progress-bytes">Preparing...</span>
-            <span id="progressNetwork" class="progress-network"></span>
+          <button id="getBtn" type="submit" class="btn">
+            <span id="getBtnSpinner" class="spinner" style="display:none;"></span>
+            <span id="getBtnText">Get Media</span>
+          </button>
+        </form>
+
+        <div id="errorAlert" class="alert"><span>⚠️</span><span id="errorMessage">Could not process this URL.</span></div>
+
+        <div id="previewCard" class="preview-card">
+          <div class="thumbnail-container">
+            <img id="previewThumbnail" class="thumbnail-img" src="" alt="Media thumbnail" />
+            <span id="previewDuration" class="duration-badge" style="display:none;">00:00</span>
           </div>
-        </div>
+          <div class="video-info">
+            <h2 id="previewTitle" class="video-title">Media Title</h2>
+            <div id="previewUploader" class="video-uploader">Source Name</div>
+          </div>
 
-        <button id="createClipsBtn" class="btn btn-viral">
-          <span id="createClipsSpinner" class="spinner" style="display:none;"></span>
-          <span id="createClipsText">✨ Create Viral Clips</span>
-        </button>
+          <div id="qualityWrapper" class="quality-wrapper">
+            <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
+            <select id="qualitySelect" class="select-field"><option value="best">Best Quality</option></select>
+          </div>
 
-        <button id="resetBtn" class="btn btn-secondary">Download Another Media</button>
+          <button id="downloadBtn" class="btn btn-download">
+            <span id="downloadBtnSpinner" class="spinner" style="display:none;"></span>
+            <span id="downloadBtnText">Download</span>
+          </button>
 
-        <div id="clipsSection" class="clips-section">
-          <div class="clips-title-bar">
-            <span class="clips-heading">Generated Viral Clips</span>
-            <div class="aspect-toggle">
-              <button id="btnAspectOriginal" class="toggle-btn active" type="button">Original (16:9)</button>
-              <button id="btnAspectVertical" class="toggle-btn" type="button">Shorts / Reels (9:16)</button>
+          <div id="progressBox" class="progress-box" style="display:none;">
+            <div class="progress-header">
+              <span id="progressStage" class="progress-stage">Downloading Media</span>
+              <span id="progressPercent" class="progress-percent">0%</span>
+            </div>
+            <div class="progress-track"><div id="progressBar" class="progress-fill" style="width:0%;"></div></div>
+            <div class="progress-stats">
+              <span id="progressBytes" class="progress-bytes">Preparing...</span>
+              <span id="progressNetwork" class="progress-network"></span>
             </div>
           </div>
-          <div id="clipsGrid" class="clips-grid"></div>
+
+          <button id="createClipsBtn" class="btn btn-viral">
+            <span id="createClipsSpinner" class="spinner" style="display:none;"></span>
+            <span id="createClipsText">✨ Create Viral Clips</span>
+          </button>
+
+          <button id="resetBtn" class="btn btn-secondary">Download Another Media</button>
+
+          <div id="clipsSection" class="clips-section">
+            <div class="clips-title-bar">
+              <span class="clips-heading">Generated Viral Clips</span>
+              <div class="aspect-toggle">
+                <button id="btnAspectOriginal" class="toggle-btn active" type="button">Original (16:9)</button>
+                <button id="btnAspectVertical" class="toggle-btn" type="button">Shorts / Reels (9:16)</button>
+              </div>
+            </div>
+            <div id="clipsGrid" class="clips-grid"></div>
+          </div>
         </div>
       </div>
+
+      <!-- ============================================== -->
+      <!-- SECTION 2: WATERMARK REMOVER                   -->
+      <!-- ============================================== -->
+      <div id="watermarkView" style="display:none;">
+        
+        <!-- Dropzone Stage -->
+        <div id="wmDropzone" class="wm-dropzone">
+          <input type="file" id="wmFileInput" accept="image/*,video/*" style="display:none;" />
+          <div class="wm-drop-icon">🧹</div>
+          <div class="wm-drop-title">Upload Image or Video to Clean</div>
+          <div class="wm-drop-sub">Drag & drop your file here, or click to browse. Automatically reconstructs & inpaints the selected watermark area.</div>
+          <div class="wm-badges">
+            <span class="wm-tag">JPG, PNG, WEBP, BMP, GIF</span>
+            <span class="wm-tag">MP4, MOV, WEBM, MKV, AVI</span>
+            <span class="wm-tag">Max 100MB Video / 25MB Image</span>
+          </div>
+        </div>
+
+        <div id="wmErrorAlert" class="alert"><span>⚠️</span><span id="wmErrorMessage">Upload failed.</span></div>
+
+        <!-- Watermark Selection Stage -->
+        <div id="wmEditor" class="preview-card" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <h2 id="wmFilename" class="video-title" style="margin-bottom:2px; font-size:1rem;">Media Name</h2>
+              <div id="wmMeta" class="video-uploader">1920x1080 &bull; Image</div>
+            </div>
+            <button id="wmChangeFileBtn" class="btn-preset" style="padding:6px 12px;">Change File</button>
+          </div>
+
+          <!-- Interactive Selection Canvas Area -->
+          <div id="wmCanvasContainer" class="wm-canvas-container">
+            <img id="wmPreviewImg" class="wm-preview-img" src="" alt="Watermark Preview" />
+            <div id="wmSelectBox" class="wm-selection-box">
+              <span id="wmCoordBadge" class="wm-coord-badge">120 x 60</span>
+              <div class="wm-handle wm-handle-nw" data-handle="nw"></div>
+              <div class="wm-handle wm-handle-ne" data-handle="ne"></div>
+              <div class="wm-handle wm-handle-sw" data-handle="sw"></div>
+              <div class="wm-handle wm-handle-se" data-handle="se"></div>
+              <div class="wm-handle wm-handle-n" data-handle="n"></div>
+              <div class="wm-handle wm-handle-s" data-handle="s"></div>
+              <div class="wm-handle wm-handle-w" data-handle="w"></div>
+              <div class="wm-handle wm-handle-e" data-handle="e"></div>
+            </div>
+          </div>
+
+          <!-- Presets Bar -->
+          <div class="wm-controls-row">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">Quick Regions:</span>
+            <div class="wm-presets">
+              <button class="btn-preset" type="button" onclick="applyWmPreset('tr')">Top-Right</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('tl')">Top-Left</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('br')">Bottom-Right</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('bl')">Bottom-Left</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('center')">Center</button>
+            </div>
+          </div>
+
+          <!-- Inpainting Options -->
+          <div class="wm-options-box">
+            <div class="wm-option-group" id="wmModeGroup">
+              <label class="wm-opt-label">Tracking Mode:</label>
+              <select id="wmModeSelect" class="select-field" style="padding:8px 12px; font-size:0.85rem;">
+                <option value="static">Static (Fixed Region / Image)</option>
+                <option value="moving">Moving Watermark (Auto-Track Motion)</option>
+              </select>
+            </div>
+            <div class="wm-option-group">
+              <label class="wm-opt-label">Inpaint Algorithm:</label>
+              <select id="wmAlgorithmSelect" class="select-field" style="padding:8px 12px; font-size:0.85rem;">
+                <option value="telea">Telea (Fast Marching - Natural Textures)</option>
+                <option value="ns">Navier-Stokes (Fluid - Smooth Gradients)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Action Button -->
+          <button id="wmProcessBtn" class="btn btn-viral">
+            <span id="wmProcessSpinner" class="spinner" style="display:none;"></span>
+            <span id="wmProcessText">🧹 Inpaint & Remove Watermark</span>
+          </button>
+
+          <!-- Processing Progress -->
+          <div id="wmProgressBox" class="progress-box" style="display:none;">
+            <div class="progress-header">
+              <span id="wmProgressStage" class="progress-stage">Processing Inpainting...</span>
+              <span id="wmProgressPercent" class="progress-percent">In Progress</span>
+            </div>
+            <div class="progress-track"><div id="wmProgressBar" class="progress-fill" style="width:75%;"></div></div>
+            <div class="progress-stats">
+              <span id="wmProgressDetail" class="progress-bytes">Reconstructing background pixels...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result / Before-After Comparison Stage -->
+        <div id="wmResultCard" class="preview-card" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span class="clips-heading">Cleaned Result</span>
+            <div class="aspect-toggle">
+              <button id="wmBtnAfter" class="toggle-btn active" type="button">Cleaned</button>
+              <button id="wmBtnBefore" class="toggle-btn" type="button">Original</button>
+            </div>
+          </div>
+
+          <div class="wm-result-media">
+            <img id="wmResultImg" class="wm-result-img" src="" alt="Cleaned Media" style="display:none;" />
+            <video id="wmResultVid" class="wm-result-vid" controls preload="metadata" style="display:none;"></video>
+          </div>
+
+          <a id="wmDownloadBtn" href="#" download class="btn btn-download">
+            ⬇️ Download Cleaned Media
+          </a>
+
+          <button id="wmResetBtn" class="btn btn-secondary">
+            🧹 Clean Another File
+          </button>
+        </div>
+
+      </div>
+
     </div>
-    <div class="footer">Private Testing Deployment &bull; Protected &bull; Does not bypass DRM or private access controls.</div>
+
+    <div class="footer">Private Studio &bull; Protected &bull; For authorized content editing only.</div>
   </div>
 
   <script>
@@ -201,6 +490,29 @@
       window.location.replace('/login');
     }
 
+    // Tab Switching
+    const tabDownloader = document.getElementById('tabDownloader');
+    const tabWatermark = document.getElementById('tabWatermark');
+    const downloaderView = document.getElementById('downloaderView');
+    const watermarkView = document.getElementById('watermarkView');
+
+    tabDownloader.addEventListener('click', () => {
+      tabDownloader.classList.add('active');
+      tabWatermark.classList.remove('active');
+      downloaderView.style.display = 'block';
+      watermarkView.style.display = 'none';
+    });
+
+    tabWatermark.addEventListener('click', () => {
+      tabWatermark.classList.add('active');
+      tabDownloader.classList.remove('active');
+      watermarkView.style.display = 'block';
+      downloaderView.style.display = 'none';
+    });
+
+    // ==============================================
+    // MEDIA DOWNLOADER LOGIC
+    // ==============================================
     const urlForm = document.getElementById('urlForm');
     const urlInput = document.getElementById('urlInput');
     const getBtn = document.getElementById('getBtn');
@@ -429,6 +741,334 @@
       urlInput.value = '';
       urlInput.focus();
       currentVideoData = null;
+    });
+
+    // ==============================================
+    // WATERMARK REMOVER LOGIC
+    // ==============================================
+    const wmDropzone = document.getElementById('wmDropzone');
+    const wmFileInput = document.getElementById('wmFileInput');
+    const wmErrorAlert = document.getElementById('wmErrorAlert');
+    const wmErrorMessage = document.getElementById('wmErrorMessage');
+    const wmEditor = document.getElementById('wmEditor');
+    const wmFilename = document.getElementById('wmFilename');
+    const wmMeta = document.getElementById('wmMeta');
+    const wmChangeFileBtn = document.getElementById('wmChangeFileBtn');
+    const wmCanvasContainer = document.getElementById('wmCanvasContainer');
+    const wmPreviewImg = document.getElementById('wmPreviewImg');
+    const wmSelectBox = document.getElementById('wmSelectBox');
+    const wmCoordBadge = document.getElementById('wmCoordBadge');
+    const wmModeSelect = document.getElementById('wmModeSelect');
+    const wmModeGroup = document.getElementById('wmModeGroup');
+    const wmAlgorithmSelect = document.getElementById('wmAlgorithmSelect');
+    const wmProcessBtn = document.getElementById('wmProcessBtn');
+    const wmProcessSpinner = document.getElementById('wmProcessSpinner');
+    const wmProcessText = document.getElementById('wmProcessText');
+    const wmProgressBox = document.getElementById('wmProgressBox');
+    const wmProgressStage = document.getElementById('wmProgressStage');
+    const wmProgressPercent = document.getElementById('wmProgressPercent');
+    const wmProgressBar = document.getElementById('wmProgressBar');
+    const wmProgressDetail = document.getElementById('wmProgressDetail');
+    const wmResultCard = document.getElementById('wmResultCard');
+    const wmResultImg = document.getElementById('wmResultImg');
+    const wmResultVid = document.getElementById('wmResultVid');
+    const wmBtnAfter = document.getElementById('wmBtnAfter');
+    const wmBtnBefore = document.getElementById('wmBtnBefore');
+    const wmDownloadBtn = document.getElementById('wmDownloadBtn');
+    const wmResetBtn = document.getElementById('wmResetBtn');
+
+    let currentWmUpload = null;
+    let currentWmJob = null;
+    let boxNorm = { x: 0.7, y: 0.05, w: 0.25, h: 0.15 }; // normalized 0..1 coordinates
+    let isDragging = false;
+    let isResizing = false;
+    let currentHandle = null;
+    let dragStartX = 0, dragStartY = 0;
+    let initialBoxNorm = null;
+
+    function showWmError(msg) { wmErrorMessage.textContent = msg; wmErrorAlert.classList.add('active'); }
+    function clearWmError() { wmErrorAlert.classList.remove('active'); wmErrorMessage.textContent = ''; }
+
+    wmDropzone.addEventListener('click', () => wmFileInput.click());
+    wmDropzone.addEventListener('dragover', (e) => { e.preventDefault(); wmDropzone.classList.add('dragover'); });
+    wmDropzone.addEventListener('dragleave', () => wmDropzone.classList.remove('dragover'));
+    wmDropzone.addEventListener('drop', (e) => {
+      e.preventDefault(); wmDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleWmFileUpload(e.dataTransfer.files[0]);
+      }
+    });
+    wmFileInput.addEventListener('change', () => {
+      if (wmFileInput.files && wmFileInput.files.length > 0) {
+        handleWmFileUpload(wmFileInput.files[0]);
+      }
+    });
+    wmChangeFileBtn.addEventListener('click', () => {
+      wmFileInput.value = '';
+      wmFileInput.click();
+    });
+
+    async function handleWmFileUpload(file) {
+      clearWmError();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      wmDropzone.style.opacity = '0.5';
+      try {
+        const res = await fetch('/api/watermark/upload', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        if (res.status === 401) { window.location.replace('/login'); return; }
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to upload media.');
+        }
+
+        currentWmUpload = data;
+        wmFilename.textContent = data.filename;
+        wmMeta.textContent = `${data.width}x${data.height}px • ${data.mediaType.toUpperCase()}${data.durationSec ? ` • ${data.durationSec}s` : ''}`;
+        
+        if (data.mediaType === 'image') {
+          wmModeGroup.style.display = 'none';
+        } else {
+          wmModeGroup.style.display = 'flex';
+        }
+
+        wmPreviewImg.src = data.previewUrl;
+        wmPreviewImg.onload = () => {
+          updateSelectBoxDisplay();
+        };
+
+        wmDropzone.style.display = 'none';
+        wmResultCard.style.display = 'none';
+        wmEditor.style.display = 'block';
+        wmEditor.classList.add('active');
+      } catch (err) {
+        showWmError(err.message || 'Upload failed.');
+      } finally {
+        wmDropzone.style.opacity = '1';
+      }
+    }
+
+    // Bounding Box Coordinate Updates
+    function updateSelectBoxDisplay() {
+      const containerW = wmCanvasContainer.clientWidth;
+      const containerH = wmCanvasContainer.clientHeight;
+      if (!containerW || !containerH) return;
+
+      const pxX = Math.round(boxNorm.x * containerW);
+      const pxY = Math.round(boxNorm.y * containerH);
+      const pxW = Math.max(20, Math.round(boxNorm.w * containerW));
+      const pxH = Math.max(20, Math.round(boxNorm.h * containerH));
+
+      wmSelectBox.style.left = `${pxX}px`;
+      wmSelectBox.style.top = `${pxY}px`;
+      wmSelectBox.style.width = `${pxW}px`;
+      wmSelectBox.style.height = `${pxH}px`;
+
+      const origW = currentWmUpload ? currentWmUpload.width : containerW;
+      const origH = currentWmUpload ? currentWmUpload.height : containerH;
+      const realW = Math.round(boxNorm.w * origW);
+      const realH = Math.round(boxNorm.h * origH);
+      wmCoordBadge.textContent = `${realW} × ${realH} px`;
+    }
+
+    window.addEventListener('resize', updateSelectBoxDisplay);
+
+    function applyWmPreset(pos) {
+      if (pos === 'tr') boxNorm = { x: 0.72, y: 0.04, w: 0.24, h: 0.14 };
+      else if (pos === 'tl') boxNorm = { x: 0.04, y: 0.04, w: 0.24, h: 0.14 };
+      else if (pos === 'br') boxNorm = { x: 0.72, y: 0.82, w: 0.24, h: 0.14 };
+      else if (pos === 'bl') boxNorm = { x: 0.04, y: 0.82, w: 0.24, h: 0.14 };
+      else if (pos === 'center') boxNorm = { x: 0.3, y: 0.35, w: 0.4, h: 0.3 };
+      updateSelectBoxDisplay();
+    }
+
+    // Mouse & Touch Dragging/Resizing on Canvas Selection Box
+    function getPointerPos(e) {
+      const rect = wmCanvasContainer.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: Math.max(0, Math.min(rect.width, clientX - rect.left)),
+        y: Math.max(0, Math.min(rect.height, clientY - rect.top)),
+        w: rect.width,
+        h: rect.height
+      };
+    }
+
+    function onPointerDown(e) {
+      const handle = e.target.getAttribute('data-handle');
+      const pos = getPointerPos(e);
+      dragStartX = pos.x;
+      dragStartY = pos.y;
+      initialBoxNorm = { ...boxNorm };
+
+      if (handle) {
+        isResizing = true;
+        currentHandle = handle;
+      } else if (e.target === wmSelectBox || wmSelectBox.contains(e.target)) {
+        isDragging = true;
+      }
+      if (isDragging || isResizing) {
+        e.preventDefault();
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('touchend', onPointerUp);
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging && !isResizing) return;
+      e.preventDefault();
+      const pos = getPointerPos(e);
+      const dx = (pos.x - dragStartX) / pos.w;
+      const dy = (pos.y - dragStartY) / pos.h;
+
+      if (isDragging) {
+        boxNorm.x = Math.max(0, Math.min(1 - initialBoxNorm.w, initialBoxNorm.x + dx));
+        boxNorm.y = Math.max(0, Math.min(1 - initialBoxNorm.h, initialBoxNorm.y + dy));
+      } else if (isResizing) {
+        let newX = initialBoxNorm.x;
+        let newY = initialBoxNorm.y;
+        let newW = initialBoxNorm.w;
+        let newH = initialBoxNorm.h;
+
+        if (currentHandle.includes('e')) newW = Math.max(0.04, Math.min(1 - newX, initialBoxNorm.w + dx));
+        if (currentHandle.includes('s')) newH = Math.max(0.04, Math.min(1 - newY, initialBoxNorm.h + dy));
+        if (currentHandle.includes('w')) {
+          const maxDx = initialBoxNorm.w - 0.04;
+          const actualDx = Math.max(-initialBoxNorm.x, Math.min(maxDx, dx));
+          newX = initialBoxNorm.x + actualDx;
+          newW = initialBoxNorm.w - actualDx;
+        }
+        if (currentHandle.includes('n')) {
+          const maxDy = initialBoxNorm.h - 0.04;
+          const actualDy = Math.max(-initialBoxNorm.y, Math.min(maxDy, dy));
+          newY = initialBoxNorm.y + actualDy;
+          newH = initialBoxNorm.h - actualDy;
+        }
+
+        boxNorm = { x: newX, y: newY, w: newW, h: newH };
+      }
+      updateSelectBoxDisplay();
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+      isResizing = false;
+      currentHandle = null;
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchend', onPointerUp);
+    }
+
+    wmSelectBox.addEventListener('mousedown', onPointerDown);
+    wmSelectBox.addEventListener('touchstart', onPointerDown, { passive: false });
+
+    // Inpainting Process Submission
+    wmProcessBtn.addEventListener('click', async () => {
+      if (!currentWmUpload) return;
+      clearWmError();
+      wmProcessBtn.disabled = true;
+      wmProcessSpinner.style.display = 'inline-block';
+      wmProcessText.textContent = 'Inpainting & Reconstructing...';
+      wmProgressBox.style.display = 'block';
+
+      // Compute actual absolute pixel coordinates
+      const origW = currentWmUpload.width;
+      const origH = currentWmUpload.height;
+      const pixelBox = {
+        x: Math.round(boxNorm.x * origW),
+        y: Math.round(boxNorm.y * origH),
+        width: Math.round(boxNorm.w * origW),
+        height: Math.round(boxNorm.h * origH)
+      };
+
+      try {
+        const res = await fetch('/api/watermark/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            fileId: currentWmUpload.fileId,
+            box: pixelBox,
+            mode: wmModeSelect.value,
+            inpaintMethod: wmAlgorithmSelect.value
+          })
+        });
+
+        if (res.status === 401) { window.location.replace('/login'); return; }
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Watermark inpainting failed.');
+        }
+
+        currentWmJob = data;
+
+        // Populate Result Card
+        if (data.mediaType === 'image') {
+          wmResultVid.style.display = 'none';
+          wmResultImg.src = data.resultPreviewUrl;
+          wmResultImg.style.display = 'block';
+        } else {
+          wmResultImg.style.display = 'none';
+          wmResultVid.src = data.downloadUrl;
+          wmResultVid.style.display = 'block';
+        }
+
+        wmDownloadBtn.href = data.downloadUrl;
+        wmEditor.style.display = 'none';
+        wmProgressBox.style.display = 'none';
+        wmResultCard.style.display = 'block';
+        wmResultCard.classList.add('active');
+      } catch (err) {
+        showWmError(err.message || 'Inpainting failed.');
+        wmProgressBox.style.display = 'none';
+      } finally {
+        wmProcessBtn.disabled = false;
+        wmProcessSpinner.style.display = 'none';
+        wmProcessText.textContent = '🧹 Inpaint & Remove Watermark';
+      }
+    });
+
+    // Before / After View Toggle
+    wmBtnAfter.addEventListener('click', () => {
+      wmBtnAfter.classList.add('active');
+      wmBtnBefore.classList.remove('active');
+      if (currentWmJob) {
+        if (currentWmJob.mediaType === 'image') {
+          wmResultImg.src = currentWmJob.resultPreviewUrl;
+        } else {
+          wmResultVid.src = currentWmJob.downloadUrl;
+        }
+      }
+    });
+
+    wmBtnBefore.addEventListener('click', () => {
+      wmBtnBefore.classList.add('active');
+      wmBtnAfter.classList.remove('active');
+      if (currentWmJob) {
+        if (currentWmJob.mediaType === 'image') {
+          wmResultImg.src = currentWmJob.originalPreviewUrl;
+        } else {
+          wmResultVid.src = currentWmUpload.previewUrl;
+        }
+      }
+    });
+
+    wmResetBtn.addEventListener('click', () => {
+      clearWmError();
+      currentWmUpload = null;
+      currentWmJob = null;
+      wmFileInput.value = '';
+      wmResultCard.style.display = 'none';
+      wmEditor.style.display = 'none';
+      wmDropzone.style.display = 'flex';
     });
   </script>
 </body>

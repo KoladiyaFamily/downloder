@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <title>Antigravity Video Downloader</title>
+  <title>Antigravity Media Studio</title>
   <style>
     :root {
       --bg: #090d16;
@@ -47,13 +47,13 @@
 
     .container {
       width: 100%;
-      max-width: 640px;
+      max-width: 680px;
       margin: 0 auto;
     }
 
     .header {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .logo-badge {
@@ -92,6 +92,12 @@
       font-size: 0.95rem;
       line-height: 1.4;
     }
+
+    /* Mode Navigation Tabs */
+    .tabs-nav { display: flex; background: rgba(10, 14, 23, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius-md); padding: 4px; gap: 6px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 10px 14px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .tab-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+    .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
 
     .card {
       background: var(--card-bg);
@@ -152,15 +158,12 @@
       transition: all 0.2s ease;
       color: #fff;
       background: var(--primary);
+      text-decoration: none;
     }
 
     .btn:hover:not(:disabled) {
       background: var(--primary-hover);
       transform: translateY(-1px);
-    }
-
-    .btn:active:not(:disabled) {
-      transform: translateY(0);
     }
 
     .btn:disabled {
@@ -306,7 +309,6 @@
       margin-bottom: 6px;
     }
 
-    /* Real Progress Bar Component */
     .progress-box {
       margin-top: 14px;
       margin-bottom: 6px;
@@ -373,7 +375,6 @@
       color: #94a3b8;
     }
 
-    /* Viral Clips Section */
     .clips-section {
       display: none;
       margin-top: 24px;
@@ -497,7 +498,147 @@
       background: var(--success);
     }
 
-    /* Auth Screen */
+    /* Watermark Remover UI Components */
+    .wm-dropzone {
+      border: 2px dashed rgba(99, 102, 241, 0.4);
+      border-radius: var(--radius-md);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(99, 102, 241, 0.04);
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .wm-dropzone:hover, .wm-dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.12);
+      transform: scale(1.01);
+    }
+    .wm-drop-icon { font-size: 2.6rem; margin-bottom: 4px; }
+    .wm-drop-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .wm-drop-sub { font-size: 0.85rem; color: var(--text-muted); max-width: 440px; line-height: 1.4; }
+    .wm-badges { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+    .wm-tag { font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: #cbd5e1; }
+
+    .wm-canvas-container {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-bottom: 16px;
+      user-select: none;
+      touch-action: none;
+    }
+    .wm-preview-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      pointer-events: none;
+    }
+    .wm-selection-box {
+      position: absolute;
+      border: 2px solid #818cf8;
+      background: rgba(99, 102, 241, 0.3);
+      cursor: move;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+    .wm-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border: 2px solid #4f46e5;
+      border-radius: 2px;
+    }
+    .wm-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+    .wm-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+    .wm-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .wm-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+    .wm-handle-n { top: -6px; left: calc(50% - 5px); cursor: ns-resize; }
+    .wm-handle-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
+    .wm-handle-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
+    .wm-handle-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; }
+    
+    .wm-coord-badge {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: rgba(0, 0, 0, 0.85);
+      color: #38bdf8;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .wm-controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wm-presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn-preset {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #cbd5e1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-preset:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+    .wm-options-box {
+      background: rgba(10, 14, 23, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .wm-option-group {
+      flex: 1;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .wm-opt-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+
+    .wm-result-media {
+      width: 100%;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+      margin-bottom: 14px;
+    }
+    .wm-result-img, .wm-result-vid {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain;
+      display: block;
+    }
+
     .auth-overlay {
       display: none;
       position: fixed;
@@ -552,7 +693,6 @@
       color: #6b7280;
     }
 
-    /* Responsive Media Queries */
     @media (max-width: 640px) {
       body { padding: 14px 10px; }
       .header { margin-bottom: 18px; }
@@ -569,6 +709,9 @@
       .clip-actions { flex-direction: column; width: 100%; }
       .btn-clip-dl { width: 100%; min-height: 44px; }
       .auth-card { padding: 24px 16px; border-radius: 14px; max-width: 95vw; }
+      .wm-dropzone { padding: 24px 12px; }
+      .wm-drop-title { font-size: 1rem; }
+      .wm-options-box { flex-direction: column; gap: 10px; }
     }
   </style>
 </head>
@@ -578,161 +721,309 @@
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
       <div class="auth-icon">🔒</div>
-      <h2 class="auth-title">Private Access Required</h2>
-      <p class="auth-desc">This application is private. Please enter the access password to continue.</p>
+      <h2 class="auth-title">Authentication Required</h2>
+      <p class="auth-desc">Please log in with your credentials to access the Media Studio.</p>
       
-      <form id="authForm" class="input-group">
-        <input id="authPassword" type="password" class="input-field" placeholder="Access Password" required />
-        <button id="authBtn" type="submit" class="btn">
-          <span id="authBtnSpinner" class="spinner" style="display: none;"></span>
-          <span id="authBtnText">Unlock Downloader</span>
-        </button>
-      </form>
-      <div id="authError" class="alert" style="margin-top: 14px;"></div>
+      <a href="/login" class="btn" style="text-decoration:none;">
+        Go to Login
+      </a>
     </div>
   </div>
 
   <div class="container">
     <div class="header">
       <div class="logo-badge private-badge">
-        <span>🔒</span> Private Deployment
+        <span>🔒</span> Private Studio
       </div>
-      <h1 class="title">Video Downloader</h1>
-      <p class="subtitle">Paste a supported video URL to inspect, select quality, and download.</p>
+      <h1 class="title">Media Studio</h1>
+      <p class="subtitle">Universal media downloader and AI-powered watermark inpainting.</p>
     </div>
 
+    <!-- Mode Navigation Tabs -->
+    <div class="tabs-nav">
+      <button id="tabDownloader" class="tab-btn active" type="button">📥 Media Downloader</button>
+      <button id="tabWatermark" class="tab-btn" type="button">✨ Watermark Remover</button>
+    </div>
+
+    <!-- MAIN STUDIO CARD -->
     <div class="card">
-      <form id="urlForm" class="input-group">
-        <div class="input-wrapper">
-          <input
-            id="urlInput"
-            type="url"
-            class="input-field"
-            placeholder="https://www.youtube.com/watch?v=..."
-            required
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <button id="getBtn" type="submit" class="btn">
-          <span id="getBtnSpinner" class="spinner" style="display: none;"></span>
-          <span id="getBtnText">Get Video</span>
-        </button>
-      </form>
-
-      <!-- Error Alert -->
-      <div id="errorAlert" class="alert">
-        <span>⚠️</span>
-        <span id="errorMessage">Could not process this video URL.</span>
-      </div>
-
-      <!-- Preview & Download Section -->
-      <div id="previewCard" class="preview-card">
-        <div class="thumbnail-container">
-          <img id="previewThumbnail" class="thumbnail-img" src="" alt="Video thumbnail" />
-          <span id="previewDuration" class="duration-badge" style="display: none;">00:00</span>
-        </div>
-        
-        <div class="video-info">
-          <h2 id="previewTitle" class="video-title">Video Title</h2>
-          <div id="previewUploader" class="video-uploader">Channel Name</div>
-        </div>
-
-        <!-- Video Quality Selection -->
-        <div class="quality-wrapper">
-          <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
-          <select id="qualitySelect" class="select-field">
-            <option value="best">Best Quality</option>
-          </select>
-        </div>
-
-        <button id="downloadBtn" class="btn btn-download">
-          <span id="downloadBtnSpinner" class="spinner" style="display: none;"></span>
-          <span id="downloadBtnText">Download Video</span>
-        </button>
-        
-        <!-- Real Backend Progress Indicator -->
-        <div id="progressBox" class="progress-box" style="display: none;">
-          <div class="progress-header">
-            <span id="progressStage" class="progress-stage">Downloading Video</span>
-            <span id="progressPercent" class="progress-percent">0%</span>
+      
+      <!-- ============================================== -->
+      <!-- SECTION 1: MEDIA DOWNLOADER                    -->
+      <!-- ============================================== -->
+      <div id="downloaderView">
+        <form id="urlForm" class="input-group">
+          <div class="input-wrapper">
+            <input
+              id="urlInput"
+              type="url"
+              class="input-field"
+              placeholder="https://www.youtube.com/watch?v=... or any video / image URL"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
           </div>
-          <div class="progress-track">
-            <div id="progressBar" class="progress-fill" style="width: 0%;"></div>
-          </div>
-          <div class="progress-stats">
-            <span id="progressBytes" class="progress-bytes">Preparing...</span>
-            <span id="progressNetwork" class="progress-network"></span>
-          </div>
+          <button id="getBtn" type="submit" class="btn">
+            <span id="getBtnSpinner" class="spinner" style="display: none;"></span>
+            <span id="getBtnText">Get Media</span>
+          </button>
+        </form>
+
+        <div id="errorAlert" class="alert">
+          <span>⚠️</span>
+          <span id="errorMessage">Could not process this video URL.</span>
         </div>
 
-        <!-- Create Viral Clips Action -->
-        <button id="createClipsBtn" class="btn btn-viral">
-          <span id="createClipsSpinner" class="spinner" style="display: none;"></span>
-          <span id="createClipsText">✨ Create Viral Clips</span>
-        </button>
+        <div id="previewCard" class="preview-card">
+          <div class="thumbnail-container">
+            <img id="previewThumbnail" class="thumbnail-img" src="" alt="Video thumbnail" />
+            <span id="previewDuration" class="duration-badge" style="display: none;">00:00</span>
+          </div>
+          
+          <div class="video-info">
+            <h2 id="previewTitle" class="video-title">Video Title</h2>
+            <div id="previewUploader" class="video-uploader">Channel Name</div>
+          </div>
 
-        <button id="resetBtn" class="btn btn-secondary">
-          Download Another Video
-        </button>
+          <div id="qualityWrapper" class="quality-wrapper">
+            <label for="qualitySelect" class="quality-label">Select Video Quality:</label>
+            <select id="qualitySelect" class="select-field">
+              <option value="best">Best Quality</option>
+            </select>
+          </div>
 
-        <!-- Viral Clips Results Section -->
-        <div id="clipsSection" class="clips-section">
-          <div class="clips-title-bar">
-            <span class="clips-heading">Generated Viral Clips</span>
-            <div class="aspect-toggle">
-              <button id="btnAspectOriginal" class="toggle-btn active" type="button">Original (16:9)</button>
-              <button id="btnAspectVertical" class="toggle-btn" type="button">Shorts / Reels (9:16)</button>
+          <button id="downloadBtn" class="btn btn-download">
+            <span id="downloadBtnSpinner" class="spinner" style="display: none;"></span>
+            <span id="downloadBtnText">Download Video</span>
+          </button>
+          
+          <div id="progressBox" class="progress-box" style="display: none;">
+            <div class="progress-header">
+              <span id="progressStage" class="progress-stage">Downloading Video</span>
+              <span id="progressPercent" class="progress-percent">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="progressBar" class="progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-stats">
+              <span id="progressBytes" class="progress-bytes">Preparing...</span>
+              <span id="progressNetwork" class="progress-network"></span>
             </div>
           </div>
-          <div id="clipsGrid" class="clips-grid"></div>
+
+          <button id="createClipsBtn" class="btn btn-viral">
+            <span id="createClipsSpinner" class="spinner" style="display: none;"></span>
+            <span id="createClipsText">✨ Create Viral Clips</span>
+          </button>
+
+          <button id="resetBtn" class="btn btn-secondary">
+            Download Another Media
+          </button>
+
+          <div id="clipsSection" class="clips-section">
+            <div class="clips-title-bar">
+              <span class="clips-heading">Generated Viral Clips</span>
+              <div class="aspect-toggle">
+                <button id="btnAspectOriginal" class="toggle-btn active" type="button">Original (16:9)</button>
+                <button id="btnAspectVertical" class="toggle-btn" type="button">Shorts / Reels (9:16)</button>
+              </div>
+            </div>
+            <div id="clipsGrid" class="clips-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- SECTION 2: WATERMARK REMOVER                   -->
+      <!-- ============================================== -->
+      <div id="watermarkView" style="display:none;">
+        
+        <!-- Dropzone Stage -->
+        <div id="wmDropzone" class="wm-dropzone">
+          <input type="file" id="wmFileInput" accept="image/*,video/*" style="display:none;" />
+          <div class="wm-drop-icon">🧹</div>
+          <div class="wm-drop-title">Upload Image or Video to Clean</div>
+          <div class="wm-drop-sub">Drag & drop your file here, or click to browse. Automatically reconstructs & inpaints the selected watermark area.</div>
+          <div class="wm-badges">
+            <span class="wm-tag">JPG, PNG, WEBP, BMP, GIF</span>
+            <span class="wm-tag">MP4, MOV, WEBM, MKV, AVI</span>
+            <span class="wm-tag">Max 100MB Video / 25MB Image</span>
+          </div>
+        </div>
+
+        <div id="wmErrorAlert" class="alert"><span>⚠️</span><span id="wmErrorMessage">Upload failed.</span></div>
+
+        <!-- Watermark Selection Stage -->
+        <div id="wmEditor" class="preview-card" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <h2 id="wmFilename" class="video-title" style="margin-bottom:2px; font-size:1rem;">Media Name</h2>
+              <div id="wmMeta" class="video-uploader">1920x1080 &bull; Image</div>
+            </div>
+            <button id="wmChangeFileBtn" class="btn-preset" style="padding:6px 12px;">Change File</button>
+          </div>
+
+          <!-- Interactive Selection Canvas Area -->
+          <div id="wmCanvasContainer" class="wm-canvas-container">
+            <img id="wmPreviewImg" class="wm-preview-img" src="" alt="Watermark Preview" />
+            <div id="wmSelectBox" class="wm-selection-box">
+              <span id="wmCoordBadge" class="wm-coord-badge">120 x 60</span>
+              <div class="wm-handle wm-handle-nw" data-handle="nw"></div>
+              <div class="wm-handle wm-handle-ne" data-handle="ne"></div>
+              <div class="wm-handle wm-handle-sw" data-handle="sw"></div>
+              <div class="wm-handle wm-handle-se" data-handle="se"></div>
+              <div class="wm-handle wm-handle-n" data-handle="n"></div>
+              <div class="wm-handle wm-handle-s" data-handle="s"></div>
+              <div class="wm-handle wm-handle-w" data-handle="w"></div>
+              <div class="wm-handle wm-handle-e" data-handle="e"></div>
+            </div>
+          </div>
+
+          <!-- Presets Bar -->
+          <div class="wm-controls-row">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">Quick Regions:</span>
+            <div class="wm-presets">
+              <button class="btn-preset" type="button" onclick="applyWmPreset('tr')">Top-Right</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('tl')">Top-Left</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('br')">Bottom-Right</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('bl')">Bottom-Left</button>
+              <button class="btn-preset" type="button" onclick="applyWmPreset('center')">Center</button>
+            </div>
+          </div>
+
+          <!-- Inpainting Options -->
+          <div class="wm-options-box">
+            <div class="wm-option-group" id="wmModeGroup">
+              <label class="wm-opt-label">Tracking Mode:</label>
+              <select id="wmModeSelect" class="select-field" style="padding:8px 12px; font-size:0.85rem;">
+                <option value="static">Static (Fixed Region / Image)</option>
+                <option value="moving">Moving Watermark (Auto-Track Motion)</option>
+              </select>
+            </div>
+            <div class="wm-option-group">
+              <label class="wm-opt-label">Inpaint Algorithm:</label>
+              <select id="wmAlgorithmSelect" class="select-field" style="padding:8px 12px; font-size:0.85rem;">
+                <option value="telea">Telea (Fast Marching - Natural Textures)</option>
+                <option value="ns">Navier-Stokes (Fluid - Smooth Gradients)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Action Button -->
+          <button id="wmProcessBtn" class="btn btn-viral">
+            <span id="wmProcessSpinner" class="spinner" style="display:none;"></span>
+            <span id="wmProcessText">🧹 Inpaint & Remove Watermark</span>
+          </button>
+
+          <!-- Processing Progress -->
+          <div id="wmProgressBox" class="progress-box" style="display:none;">
+            <div class="progress-header">
+              <span id="wmProgressStage" class="progress-stage">Processing Inpainting...</span>
+              <span id="wmProgressPercent" class="progress-percent">In Progress</span>
+            </div>
+            <div class="progress-track"><div id="wmProgressBar" class="progress-fill" style="width:75%;"></div></div>
+            <div class="progress-stats">
+              <span id="wmProgressDetail" class="progress-bytes">Reconstructing background pixels...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result / Before-After Comparison Stage -->
+        <div id="wmResultCard" class="preview-card" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span class="clips-heading">Cleaned Result</span>
+            <div class="aspect-toggle">
+              <button id="wmBtnAfter" class="toggle-btn active" type="button">Cleaned</button>
+              <button id="wmBtnBefore" class="toggle-btn" type="button">Original</button>
+            </div>
+          </div>
+
+          <div class="wm-result-media">
+            <img id="wmResultImg" class="wm-result-img" src="" alt="Cleaned Media" style="display:none;" />
+            <video id="wmResultVid" class="wm-result-vid" controls preload="metadata" style="display:none;"></video>
+          </div>
+
+          <a id="wmDownloadBtn" href="#" download class="btn btn-download">
+            ⬇️ Download Cleaned Media
+          </a>
+
+          <button id="wmResetBtn" class="btn btn-secondary">
+            🧹 Clean Another File
+          </button>
         </div>
 
       </div>
+
     </div>
 
     <div class="footer">
-      Private Testing Deployment &bull; Protected &bull; Does not bypass DRM or private access controls.
+      Private Studio &bull; Protected &bull; For authorized content editing only.
     </div>
   </div>
 
   <script>
-    // Elements
     const authOverlay = document.getElementById('authOverlay');
-    const authForm = document.getElementById('authForm');
-    const authPassword = document.getElementById('authPassword');
-    const authBtn = document.getElementById('authBtn');
-    const authBtnText = document.getElementById('authBtnText');
-    const authBtnSpinner = document.getElementById('authBtnSpinner');
-    const authError = document.getElementById('authError');
 
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (!data.authenticated) {
+          authOverlay.classList.add('active');
+        } else {
+          authOverlay.classList.remove('active');
+        }
+      } catch (_) {
+        authOverlay.classList.add('active');
+      }
+    }
+    checkAuthStatus();
+
+    // Tab Switching
+    const tabDownloader = document.getElementById('tabDownloader');
+    const tabWatermark = document.getElementById('tabWatermark');
+    const downloaderView = document.getElementById('downloaderView');
+    const watermarkView = document.getElementById('watermarkView');
+
+    tabDownloader.addEventListener('click', () => {
+      tabDownloader.classList.add('active');
+      tabWatermark.classList.remove('active');
+      downloaderView.style.display = 'block';
+      watermarkView.style.display = 'none';
+    });
+
+    tabWatermark.addEventListener('click', () => {
+      tabWatermark.classList.add('active');
+      tabDownloader.classList.remove('active');
+      watermarkView.style.display = 'block';
+      downloaderView.style.display = 'none';
+    });
+
+    // Downloader Elements
     const urlForm = document.getElementById('urlForm');
     const urlInput = document.getElementById('urlInput');
     const getBtn = document.getElementById('getBtn');
     const getBtnText = document.getElementById('getBtnText');
     const getBtnSpinner = document.getElementById('getBtnSpinner');
-
     const errorAlert = document.getElementById('errorAlert');
     const errorMessage = document.getElementById('errorMessage');
-
     const previewCard = document.getElementById('previewCard');
     const previewThumbnail = document.getElementById('previewThumbnail');
     const previewDuration = document.getElementById('previewDuration');
     const previewTitle = document.getElementById('previewTitle');
     const previewUploader = document.getElementById('previewUploader');
+    const qualityWrapper = document.getElementById('qualityWrapper');
     const qualitySelect = document.getElementById('qualitySelect');
-
     const downloadBtn = document.getElementById('downloadBtn');
     const downloadBtnSpinner = document.getElementById('downloadBtnSpinner');
     const downloadBtnText = document.getElementById('downloadBtnText');
-
     const progressBox = document.getElementById('progressBox');
     const progressStage = document.getElementById('progressStage');
     const progressPercent = document.getElementById('progressPercent');
     const progressBar = document.getElementById('progressBar');
     const progressBytes = document.getElementById('progressBytes');
     const progressNetwork = document.getElementById('progressNetwork');
-
     const createClipsBtn = document.getElementById('createClipsBtn');
     const createClipsText = document.getElementById('createClipsText');
     const createClipsSpinner = document.getElementById('createClipsSpinner');
@@ -740,56 +1031,11 @@
     const clipsGrid = document.getElementById('clipsGrid');
     const btnAspectOriginal = document.getElementById('btnAspectOriginal');
     const btnAspectVertical = document.getElementById('btnAspectVertical');
-
     const resetBtn = document.getElementById('resetBtn');
 
     let currentVideoData = null;
     let activeEventSource = null;
     let isVerticalMode = false;
-
-    // Check Auth Status on Load
-    async function checkAuthStatus() {
-      try {
-        const res = await fetch('/api/auth/status');
-        const data = await res.json();
-        if (!data.authenticated) {
-          authOverlay.classList.add('active');
-        } else {
-          authOverlay.classList.remove('active');
-        }
-      } catch (_) {}
-    }
-    checkAuthStatus();
-
-    // Login Submission
-    authForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      authError.style.display = 'none';
-      authBtn.disabled = true;
-      authBtnSpinner.style.display = 'inline-block';
-      authBtnText.textContent = 'Verifying...';
-
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: authPassword.value })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Incorrect password.');
-        }
-        authOverlay.classList.remove('active');
-        authPassword.value = '';
-      } catch (err) {
-        authError.textContent = err.message;
-        authError.style.display = 'block';
-      } finally {
-        authBtn.disabled = false;
-        authBtnSpinner.style.display = 'none';
-        authBtnText.textContent = 'Unlock Downloader';
-      }
-    });
 
     function showError(msg) {
       errorMessage.textContent = msg;
@@ -798,7 +1044,6 @@
 
     function clearError() {
       errorAlert.classList.remove('active');
-      errorMessage.textContent = '';
     }
 
     function resetProgressUI() {
@@ -809,26 +1054,11 @@
       progressBox.style.display = 'none';
       progressBar.style.width = '0%';
       progressPercent.textContent = '0%';
-      progressStage.textContent = 'Downloading Video';
+      progressStage.textContent = 'Downloading Media';
       progressBytes.textContent = '';
       progressNetwork.textContent = '';
     }
 
-    function setGetLoading(loading) {
-      if (loading) {
-        getBtn.disabled = true;
-        getBtnSpinner.style.display = 'inline-block';
-        getBtnText.textContent = 'Processing...';
-        urlInput.disabled = true;
-      } else {
-        getBtn.disabled = false;
-        getBtnSpinner.style.display = 'none';
-        getBtnText.textContent = 'Get Video';
-        urlInput.disabled = false;
-      }
-    }
-
-    // Toggle Aspect Ratio
     btnAspectOriginal.addEventListener('click', () => {
       isVerticalMode = false;
       btnAspectOriginal.classList.add('active');
@@ -841,7 +1071,6 @@
       btnAspectOriginal.classList.remove('active');
     });
 
-    // Form Submit: Get Video Info
     urlForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       clearError();
@@ -853,11 +1082,13 @@
 
       const url = urlInput.value.trim();
       if (!url) {
-        showError('Please paste a video URL.');
+        showError('Please enter a valid URL.');
         return;
       }
 
-      setGetLoading(true);
+      getBtn.disabled = true;
+      getBtnSpinner.style.display = 'inline-block';
+      getBtnText.textContent = 'Processing...';
 
       try {
         const res = await fetch('/api/info', {
@@ -865,40 +1096,15 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url })
         });
-
         const data = await res.json();
-
-        if (res.status === 401) {
-          authOverlay.classList.add('active');
-          throw new Error('Authentication required.');
-        }
-
         if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Failed to process video.');
+          throw new Error(data.error || 'Failed to process media.');
         }
 
         currentVideoData = data;
-
-        previewTitle.textContent = data.title;
-        previewUploader.textContent = data.uploader ? `Channel: ${data.uploader}` : '';
-
-        if (data.thumbnail) {
-          previewThumbnail.src = data.thumbnail;
-          previewThumbnail.style.display = 'block';
-        } else {
-          previewThumbnail.style.display = 'none';
-        }
-
-        if (data.duration) {
-          previewDuration.textContent = data.duration;
-          previewDuration.style.display = 'inline-block';
-        } else {
-          previewDuration.style.display = 'none';
-        }
-
-        // Populate genuine available qualities
         previewTitle.textContent = data.title;
         previewUploader.textContent = data.uploader ? (data.mediaType === 'image' ? `Source: ${data.uploader}` : `Channel: ${data.uploader}`) : '';
+        
         if (data.thumbnail) {
           previewThumbnail.src = data.thumbnail;
           previewThumbnail.style.display = 'block';
@@ -908,7 +1114,7 @@
 
         if (data.mediaType === 'image') {
           previewDuration.style.display = 'none';
-          document.querySelector('.quality-wrapper').style.display = 'none';
+          if (qualityWrapper) qualityWrapper.style.display = 'none';
           createClipsBtn.style.display = 'none';
           downloadBtn.disabled = false;
           downloadBtnSpinner.style.display = 'none';
@@ -920,9 +1126,9 @@
           } else {
             previewDuration.style.display = 'none';
           }
-          document.querySelector('.quality-wrapper').style.display = 'block';
+          if (qualityWrapper) qualityWrapper.style.display = 'block';
           qualitySelect.innerHTML = '';
-          (Array.isArray(data.qualities) && data.qualities.length > 0 ? data.qualities : [{ label:'Best Quality', value:'best' }]).forEach(q => {
+          (Array.isArray(data.qualities) && data.qualities.length > 0 ? data.qualities : [{ label: 'Best Quality', value: 'best' }]).forEach(q => {
             const opt = document.createElement('option');
             opt.value = q.value;
             opt.textContent = q.label;
@@ -939,19 +1145,18 @@
 
         previewCard.classList.add('active');
       } catch (err) {
-        showError(err.message && !err.message.includes('object') ? err.message : 'This URL does not contain a supported downloadable video or image.');
+        showError(err.message || 'Could not process this video URL.');
       } finally {
-        setGetLoading(false);
+        getBtn.disabled = false;
+        getBtnSpinner.style.display = 'none';
+        getBtnText.textContent = 'Get Media';
       }
     });
 
-    // Download Media Click
     downloadBtn.addEventListener('click', () => {
       if (!currentVideoData || !currentVideoData.url) return;
-
       clearError();
       resetProgressUI();
-
       const isImage = currentVideoData.mediaType === 'image';
       const selectedQuality = qualitySelect ? (qualitySelect.value || 'best') : 'best';
 
@@ -972,34 +1177,24 @@
       activeEventSource.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-
           if (data.stage === 'preparing') {
             downloadBtnText.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
             progressStage.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
-            progressBytes.textContent = 'Initializing media transfer...';
+            progressBytes.textContent = 'Initializing transfer...';
           } else if (data.stage === 'downloading') {
             const pct = data.percent !== undefined ? data.percent : 0;
             downloadBtnText.textContent = `Downloading ${pct}%`;
             progressStage.textContent = isImage ? 'Downloading image...' : 'Downloading video...';
             progressPercent.textContent = `${pct}%`;
             progressBar.style.width = `${pct}%`;
-
-            if (data.downloaded && data.totalSize) {
-              progressBytes.textContent = `${data.downloaded} / ${data.totalSize}`;
-            } else if (data.totalSize) {
-              progressBytes.textContent = `Total: ${data.totalSize}`;
-            } else {
-              progressBytes.textContent = 'Calculating size...';
-            }
-
-            const parts = [];
-            if (data.speed) parts.push(`Speed: ${data.speed}`);
-            if (data.eta) parts.push(`ETA: ${data.eta}`);
+            if (data.downloaded && data.totalSize) progressBytes.textContent = `${data.downloaded} / ${data.totalSize}`;
+            else if (data.totalSize) progressBytes.textContent = `Total: ${data.totalSize}`;
+            else progressBytes.textContent = 'Calculating size...';
+            const parts = []; if (data.speed) parts.push(`Speed: ${data.speed}`); if (data.eta) parts.push(`ETA: ${data.eta}`);
             progressNetwork.textContent = parts.join(' | ');
-
           } else if (data.stage === 'merging') {
-            downloadBtnText.textContent = 'Merging media streams...';
-            progressStage.textContent = 'Merging media streams...';
+            downloadBtnText.textContent = 'Merging streams...';
+            progressStage.textContent = 'Merging streams...';
             progressBytes.textContent = data.detail || 'Merging with FFmpeg...';
             progressNetwork.textContent = '';
           } else if (data.stage === 'validating') {
@@ -1008,21 +1203,14 @@
             progressBytes.textContent = data.detail || 'Verifying media streams...';
             progressNetwork.textContent = '';
           } else if (data.stage === 'ready') {
-            if (activeEventSource) {
-              activeEventSource.close();
-              activeEventSource = null;
-            }
-
+            if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
             downloadBtnText.textContent = 'Complete';
             downloadBtnSpinner.style.display = 'none';
-
             progressStage.textContent = 'Complete';
             progressPercent.textContent = '100%';
             progressBar.style.width = '100%';
             progressBytes.textContent = '✔ Download ready! Starting browser transfer...';
             progressNetwork.textContent = '';
-
-            // Trigger file download
             const fileUrl = `/api/file/${encodeURIComponent(data.downloadToken)}`;
             const a = document.createElement('a');
             a.href = fileUrl;
@@ -1030,16 +1218,12 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-
             setTimeout(() => {
               downloadBtn.disabled = false;
               downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
             }, 4000);
           } else if (data.stage === 'error') {
-            if (activeEventSource) {
-              activeEventSource.close();
-              activeEventSource = null;
-            }
+            if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
             progressBox.style.display = 'none';
             downloadBtn.disabled = false;
             downloadBtnSpinner.style.display = 'none';
@@ -1050,10 +1234,7 @@
       };
 
       activeEventSource.onerror = () => {
-        if (activeEventSource) {
-          activeEventSource.close();
-          activeEventSource = null;
-        }
+        if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
         progressBox.style.display = 'none';
         downloadBtn.disabled = false;
         downloadBtnSpinner.style.display = 'none';
@@ -1062,17 +1243,14 @@
       };
     });
 
-    // Create Viral Clips Click
     createClipsBtn.addEventListener('click', async () => {
       if (!currentVideoData || !currentVideoData.url) return;
-
       clearError();
       createClipsBtn.disabled = true;
       createClipsSpinner.style.display = 'inline-block';
       createClipsText.textContent = 'Analyzing video & generating clips...';
       clipsSection.classList.remove('active');
       clipsGrid.innerHTML = '';
-
       try {
         const res = await fetch('/api/clips/generate', {
           method: 'POST',
@@ -1083,19 +1261,10 @@
             isVertical: isVerticalMode
           })
         });
-
         const data = await res.json();
-
-        if (res.status === 401) {
-          authOverlay.classList.add('active');
-          throw new Error('Authentication required.');
-        }
-
         if (!res.ok || !data.success || !Array.isArray(data.clips)) {
           throw new Error(data.error || 'Failed to generate viral clips.');
         }
-
-        // Render generated clips
         clipsGrid.innerHTML = '';
         data.clips.forEach(clip => {
           const card = document.createElement('div');
@@ -1120,7 +1289,6 @@
           `;
           clipsGrid.appendChild(card);
         });
-
         clipsSection.classList.add('active');
       } catch (err) {
         showError(err.message || 'Could not generate clips from this video.');
@@ -1131,7 +1299,6 @@
       }
     });
 
-    // Reset Button Click
     resetBtn.addEventListener('click', () => {
       resetProgressUI();
       previewCard.classList.remove('active');
@@ -1141,6 +1308,328 @@
       urlInput.value = '';
       urlInput.focus();
       currentVideoData = null;
+    });
+
+    // ==============================================
+    // WATERMARK REMOVER LOGIC
+    // ==============================================
+    const wmDropzone = document.getElementById('wmDropzone');
+    const wmFileInput = document.getElementById('wmFileInput');
+    const wmErrorAlert = document.getElementById('wmErrorAlert');
+    const wmErrorMessage = document.getElementById('wmErrorMessage');
+    const wmEditor = document.getElementById('wmEditor');
+    const wmFilename = document.getElementById('wmFilename');
+    const wmMeta = document.getElementById('wmMeta');
+    const wmChangeFileBtn = document.getElementById('wmChangeFileBtn');
+    const wmCanvasContainer = document.getElementById('wmCanvasContainer');
+    const wmPreviewImg = document.getElementById('wmPreviewImg');
+    const wmSelectBox = document.getElementById('wmSelectBox');
+    const wmCoordBadge = document.getElementById('wmCoordBadge');
+    const wmModeSelect = document.getElementById('wmModeSelect');
+    const wmModeGroup = document.getElementById('wmModeGroup');
+    const wmAlgorithmSelect = document.getElementById('wmAlgorithmSelect');
+    const wmProcessBtn = document.getElementById('wmProcessBtn');
+    const wmProcessSpinner = document.getElementById('wmProcessSpinner');
+    const wmProcessText = document.getElementById('wmProcessText');
+    const wmProgressBox = document.getElementById('wmProgressBox');
+    const wmProgressStage = document.getElementById('wmProgressStage');
+    const wmProgressPercent = document.getElementById('wmProgressPercent');
+    const wmProgressBar = document.getElementById('wmProgressBar');
+    const wmProgressDetail = document.getElementById('wmProgressDetail');
+    const wmResultCard = document.getElementById('wmResultCard');
+    const wmResultImg = document.getElementById('wmResultImg');
+    const wmResultVid = document.getElementById('wmResultVid');
+    const wmBtnAfter = document.getElementById('wmBtnAfter');
+    const wmBtnBefore = document.getElementById('wmBtnBefore');
+    const wmDownloadBtn = document.getElementById('wmDownloadBtn');
+    const wmResetBtn = document.getElementById('wmResetBtn');
+
+    let currentWmUpload = null;
+    let currentWmJob = null;
+    let boxNorm = { x: 0.7, y: 0.05, w: 0.25, h: 0.15 };
+    let isDragging = false;
+    let isResizing = false;
+    let currentHandle = null;
+    let dragStartX = 0, dragStartY = 0;
+    let initialBoxNorm = null;
+
+    function showWmError(msg) { wmErrorMessage.textContent = msg; wmErrorAlert.classList.add('active'); }
+    function clearWmError() { wmErrorAlert.classList.remove('active'); wmErrorMessage.textContent = ''; }
+
+    wmDropzone.addEventListener('click', () => wmFileInput.click());
+    wmDropzone.addEventListener('dragover', (e) => { e.preventDefault(); wmDropzone.classList.add('dragover'); });
+    wmDropzone.addEventListener('dragleave', () => wmDropzone.classList.remove('dragover'));
+    wmDropzone.addEventListener('drop', (e) => {
+      e.preventDefault(); wmDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleWmFileUpload(e.dataTransfer.files[0]);
+      }
+    });
+    wmFileInput.addEventListener('change', () => {
+      if (wmFileInput.files && wmFileInput.files.length > 0) {
+        handleWmFileUpload(wmFileInput.files[0]);
+      }
+    });
+    wmChangeFileBtn.addEventListener('click', () => {
+      wmFileInput.value = '';
+      wmFileInput.click();
+    });
+
+    async function handleWmFileUpload(file) {
+      clearWmError();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      wmDropzone.style.opacity = '0.5';
+      try {
+        const res = await fetch('/api/watermark/upload', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        if (res.status === 401) { authOverlay.classList.add('active'); return; }
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to upload media.');
+        }
+
+        currentWmUpload = data;
+        wmFilename.textContent = data.filename;
+        wmMeta.textContent = `${data.width}x${data.height}px • ${data.mediaType.toUpperCase()}${data.durationSec ? ` • ${data.durationSec}s` : ''}`;
+        
+        if (data.mediaType === 'image') {
+          wmModeGroup.style.display = 'none';
+        } else {
+          wmModeGroup.style.display = 'flex';
+        }
+
+        wmPreviewImg.src = data.previewUrl;
+        wmPreviewImg.onload = () => {
+          updateSelectBoxDisplay();
+        };
+
+        wmDropzone.style.display = 'none';
+        wmResultCard.style.display = 'none';
+        wmEditor.style.display = 'block';
+        wmEditor.classList.add('active');
+      } catch (err) {
+        showWmError(err.message || 'Upload failed.');
+      } finally {
+        wmDropzone.style.opacity = '1';
+      }
+    }
+
+    function updateSelectBoxDisplay() {
+      const containerW = wmCanvasContainer.clientWidth;
+      const containerH = wmCanvasContainer.clientHeight;
+      if (!containerW || !containerH) return;
+
+      const pxX = Math.round(boxNorm.x * containerW);
+      const pxY = Math.round(boxNorm.y * containerH);
+      const pxW = Math.max(20, Math.round(boxNorm.w * containerW));
+      const pxH = Math.max(20, Math.round(boxNorm.h * containerH));
+
+      wmSelectBox.style.left = `${pxX}px`;
+      wmSelectBox.style.top = `${pxY}px`;
+      wmSelectBox.style.width = `${pxW}px`;
+      wmSelectBox.style.height = `${pxH}px`;
+
+      const origW = currentWmUpload ? currentWmUpload.width : containerW;
+      const origH = currentWmUpload ? currentWmUpload.height : containerH;
+      const realW = Math.round(boxNorm.w * origW);
+      const realH = Math.round(boxNorm.h * origH);
+      wmCoordBadge.textContent = `${realW} × ${realH} px`;
+    }
+
+    window.addEventListener('resize', updateSelectBoxDisplay);
+
+    function applyWmPreset(pos) {
+      if (pos === 'tr') boxNorm = { x: 0.72, y: 0.04, w: 0.24, h: 0.14 };
+      else if (pos === 'tl') boxNorm = { x: 0.04, y: 0.04, w: 0.24, h: 0.14 };
+      else if (pos === 'br') boxNorm = { x: 0.72, y: 0.82, w: 0.24, h: 0.14 };
+      else if (pos === 'bl') boxNorm = { x: 0.04, y: 0.82, w: 0.24, h: 0.14 };
+      else if (pos === 'center') boxNorm = { x: 0.3, y: 0.35, w: 0.4, h: 0.3 };
+      updateSelectBoxDisplay();
+    }
+
+    function getPointerPos(e) {
+      const rect = wmCanvasContainer.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: Math.max(0, Math.min(rect.width, clientX - rect.left)),
+        y: Math.max(0, Math.min(rect.height, clientY - rect.top)),
+        w: rect.width,
+        h: rect.height
+      };
+    }
+
+    function onPointerDown(e) {
+      const handle = e.target.getAttribute('data-handle');
+      const pos = getPointerPos(e);
+      dragStartX = pos.x;
+      dragStartY = pos.y;
+      initialBoxNorm = { ...boxNorm };
+
+      if (handle) {
+        isResizing = true;
+        currentHandle = handle;
+      } else if (e.target === wmSelectBox || wmSelectBox.contains(e.target)) {
+        isDragging = true;
+      }
+      if (isDragging || isResizing) {
+        e.preventDefault();
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('touchend', onPointerUp);
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging && !isResizing) return;
+      e.preventDefault();
+      const pos = getPointerPos(e);
+      const dx = (pos.x - dragStartX) / pos.w;
+      const dy = (pos.y - dragStartY) / pos.h;
+
+      if (isDragging) {
+        boxNorm.x = Math.max(0, Math.min(1 - initialBoxNorm.w, initialBoxNorm.x + dx));
+        boxNorm.y = Math.max(0, Math.min(1 - initialBoxNorm.h, initialBoxNorm.y + dy));
+      } else if (isResizing) {
+        let newX = initialBoxNorm.x;
+        let newY = initialBoxNorm.y;
+        let newW = initialBoxNorm.w;
+        let newH = initialBoxNorm.h;
+
+        if (currentHandle.includes('e')) newW = Math.max(0.04, Math.min(1 - newX, initialBoxNorm.w + dx));
+        if (currentHandle.includes('s')) newH = Math.max(0.04, Math.min(1 - newY, initialBoxNorm.h + dy));
+        if (currentHandle.includes('w')) {
+          const maxDx = initialBoxNorm.w - 0.04;
+          const actualDx = Math.max(-initialBoxNorm.x, Math.min(maxDx, dx));
+          newX = initialBoxNorm.x + actualDx;
+          newW = initialBoxNorm.w - actualDx;
+        }
+        if (currentHandle.includes('n')) {
+          const maxDy = initialBoxNorm.h - 0.04;
+          const actualDy = Math.max(-initialBoxNorm.y, Math.min(maxDy, dy));
+          newY = initialBoxNorm.y + actualDy;
+          newH = initialBoxNorm.h - actualDy;
+        }
+
+        boxNorm = { x: newX, y: newY, w: newW, h: newH };
+      }
+      updateSelectBoxDisplay();
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+      isResizing = false;
+      currentHandle = null;
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchend', onPointerUp);
+    }
+
+    wmSelectBox.addEventListener('mousedown', onPointerDown);
+    wmSelectBox.addEventListener('touchstart', onPointerDown, { passive: false });
+
+    wmProcessBtn.addEventListener('click', async () => {
+      if (!currentWmUpload) return;
+      clearWmError();
+      wmProcessBtn.disabled = true;
+      wmProcessSpinner.style.display = 'inline-block';
+      wmProcessText.textContent = 'Inpainting & Reconstructing...';
+      wmProgressBox.style.display = 'block';
+
+      const origW = currentWmUpload.width;
+      const origH = currentWmUpload.height;
+      const pixelBox = {
+        x: Math.round(boxNorm.x * origW),
+        y: Math.round(boxNorm.y * origH),
+        width: Math.round(boxNorm.w * origW),
+        height: Math.round(boxNorm.h * origH)
+      };
+
+      try {
+        const res = await fetch('/api/watermark/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            fileId: currentWmUpload.fileId,
+            box: pixelBox,
+            mode: wmModeSelect.value,
+            inpaintMethod: wmAlgorithmSelect.value
+          })
+        });
+
+        if (res.status === 401) { authOverlay.classList.add('active'); return; }
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Watermark inpainting failed.');
+        }
+
+        currentWmJob = data;
+
+        if (data.mediaType === 'image') {
+          wmResultVid.style.display = 'none';
+          wmResultImg.src = data.resultPreviewUrl;
+          wmResultImg.style.display = 'block';
+        } else {
+          wmResultImg.style.display = 'none';
+          wmResultVid.src = data.downloadUrl;
+          wmResultVid.style.display = 'block';
+        }
+
+        wmDownloadBtn.href = data.downloadUrl;
+        wmEditor.style.display = 'none';
+        wmProgressBox.style.display = 'none';
+        wmResultCard.style.display = 'block';
+        wmResultCard.classList.add('active');
+      } catch (err) {
+        showWmError(err.message || 'Inpainting failed.');
+        wmProgressBox.style.display = 'none';
+      } finally {
+        wmProcessBtn.disabled = false;
+        wmProcessSpinner.style.display = 'none';
+        wmProcessText.textContent = '🧹 Inpaint & Remove Watermark';
+      }
+    });
+
+    wmBtnAfter.addEventListener('click', () => {
+      wmBtnAfter.classList.add('active');
+      wmBtnBefore.classList.remove('active');
+      if (currentWmJob) {
+        if (currentWmJob.mediaType === 'image') {
+          wmResultImg.src = currentWmJob.resultPreviewUrl;
+        } else {
+          wmResultVid.src = currentWmJob.downloadUrl;
+        }
+      }
+    });
+
+    wmBtnBefore.addEventListener('click', () => {
+      wmBtnBefore.classList.add('active');
+      wmBtnAfter.classList.remove('active');
+      if (currentWmJob) {
+        if (currentWmJob.mediaType === 'image') {
+          wmResultImg.src = currentWmJob.originalPreviewUrl;
+        } else {
+          wmResultVid.src = currentWmUpload.previewUrl;
+        }
+      }
+    });
+
+    wmResetBtn.addEventListener('click', () => {
+      clearWmError();
+      currentWmUpload = null;
+      currentWmJob = null;
+      wmFileInput.value = '';
+      wmResultCard.style.display = 'none';
+      wmEditor.style.display = 'none';
+      wmDropzone.style.display = 'flex';
     });
   </script>
 </body>
