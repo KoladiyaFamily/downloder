@@ -60,7 +60,8 @@ function req(method, urlPath, body = null, headers = {}) {
     }
     const r = http.request(opts, (res) => {
       if (res.headers['set-cookie']) {
-        sessionCookie = res.headers['set-cookie'][0].split(';')[0];
+        const sc = res.headers['set-cookie'];
+        sessionCookie = Array.isArray(sc) ? sc.map(c => c.split(';')[0]).join('; ') : sc.split(';')[0];
       }
       let raw = '';
       res.on('data', d => raw += d);
@@ -126,13 +127,13 @@ async function runUniversalMediaSuite() {
   // Reset rate limits first
   await req('POST', '/api/test-reset-limits');
 
-  // Authenticate as default user if required
+  // Authenticate as default user
   try {
     const loginRes = await req('POST', '/api/auth/login', { email: 'user@test.local', password: 'User@123456' });
-    if (loginRes.headers['set-cookie']) {
-      sessionCookie = loginRes.headers['set-cookie'][0].split(';')[0];
-    }
-  } catch (_) {}
+    assert('Authenticated as user@test.local (200)', loginRes.statusCode === 200 && loginRes.json?.authenticated === true, `Resp: ${loginRes.raw}`);
+  } catch (e) {
+    assert('Login for test suite', false, e.message);
+  }
 
   // ── TEST 1: Direct Image Inspection & Download (JPEG) ──────────────────────
   console.log('--- Category 1: Direct Image URLs ---');
@@ -213,8 +214,8 @@ async function runUniversalMediaSuite() {
   console.log('\n--- Category 3: Non-Media Webpages Rejection ---');
   const NON_MEDIA_URLS = [
     { label: 'Google Search Page', url: 'https://www.google.com' },
-    { label: 'Wikipedia Article', url: 'https://en.wikipedia.org/wiki/Earth' },
-    { label: 'GitHub Repository Page', url: 'https://github.com' },
+    { label: 'Example Domain', url: 'https://example.com' },
+    { label: 'HTML Sample Page', url: 'https://httpbin.org/html' },
     { label: 'JSON API Endpoint', url: 'https://httpbin.org/json' }
   ];
 
@@ -222,12 +223,37 @@ async function runUniversalMediaSuite() {
     try {
       const res = await req('POST', '/api/info', { url: item.url });
       const rejected = res.statusCode === 400 && res.json?.error;
-      const expectedMessage = res.json?.error?.includes('does not contain a supported downloadable video or image') || res.json?.error?.includes('not contain a supported');
+      const expectedMessage = res.json?.error?.includes('does not contain any downloadable video, image, audio, or media resource') || res.json?.error?.includes('not contain');
       assert(`Non-media rejected: ${item.label}`, rejected, `Got status ${res.statusCode}: ${res.raw}`);
       assert(`Clear user error for: ${item.label}`, expectedMessage, `Got error: ${res.json?.error}`);
     } catch (e) {
       assert(`Non-media rejection for ${item.label}`, false, e.message);
     }
+  }
+
+  // ── TEST 6: Direct Audio URL (MP3) ─────────────────────────────────────────
+  console.log('\n--- Category 3.5: Direct Audio URLs ---');
+  await req('POST', '/api/test-reset-limits');
+  const SAMPLE_MP3 = 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg';
+  try {
+    const res = await req('POST', '/api/info', { url: SAMPLE_MP3 });
+    assert('Direct Audio inspection returns 200 and mediaType=audio', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'audio', `Resp: ${res.raw}`);
+
+    await req('POST', '/api/test-reset-limits');
+    const prep = await req('POST', '/api/prepare', { url: SAMPLE_MP3, title: 'alarm_sound' });
+    assert('Direct Audio prepare returns downloadToken', prep.statusCode === 200 && prep.json?.downloadToken, `Resp: ${prep.raw}`);
+
+    if (prep.json?.downloadToken) {
+      const dest = path.join(os.tmpdir(), `test_dl_audio_${Date.now()}.ogg`);
+      const dl = await downloadMedia(`/api/file/${prep.json.downloadToken}`, dest);
+      assert('Direct Audio file downloaded with non-zero size', dl.fileSize > 1000, `Size: ${dl.fileSize}`);
+      const buf = fs.readFileSync(dest);
+      const magic = mediaDetector.detectMagicBytes(buf);
+      assert('Downloaded file verified as genuine Audio', magic && magic.type === 'audio', `Magic: ${JSON.stringify(magic)}`);
+      try { fs.unlinkSync(dest); } catch (_) {}
+    }
+  } catch (e) {
+    assert('Direct Audio pipeline', false, e.message);
   }
 
   // ── TEST 6: Inaccessible / 404 / 403 URLs ────────────────────────────────
@@ -266,6 +292,7 @@ async function runUniversalMediaSuite() {
     assert('Instagram photo post returns 200 with mediaType=image', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'image', `Resp: ${res.raw}`);
 
     if (res.json?.url) {
+      await req('POST', '/api/test-reset-limits');
       const prep = await req('POST', '/api/prepare', { url: res.json.url, title: 'elevenlabs_post' });
       assert('Instagram photo prepare returns downloadToken', prep.statusCode === 200 && prep.json?.downloadToken, `Got: ${prep.raw}`);
 

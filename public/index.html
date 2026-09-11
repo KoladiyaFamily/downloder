@@ -1119,6 +1119,21 @@
           downloadBtn.disabled = false;
           downloadBtnSpinner.style.display = 'none';
           downloadBtnText.textContent = 'Download Image';
+        } else if (data.mediaType === 'audio') {
+          previewDuration.style.display = data.duration ? 'inline-block' : 'none';
+          if (data.duration) previewDuration.textContent = data.duration;
+          if (qualityWrapper) qualityWrapper.style.display = 'none';
+          createClipsBtn.style.display = 'none';
+          downloadBtn.disabled = false;
+          downloadBtnSpinner.style.display = 'none';
+          downloadBtnText.textContent = 'Download Audio';
+        } else if (data.mediaType === 'file') {
+          previewDuration.style.display = 'none';
+          if (qualityWrapper) qualityWrapper.style.display = 'none';
+          createClipsBtn.style.display = 'none';
+          downloadBtn.disabled = false;
+          downloadBtnSpinner.style.display = 'none';
+          downloadBtnText.textContent = 'Download File';
         } else {
           if (data.duration) {
             previewDuration.textContent = data.duration;
@@ -1145,7 +1160,7 @@
 
         previewCard.classList.add('active');
       } catch (err) {
-        showError(err.message || 'Could not process this video URL.');
+        showError(err.message || 'This URL does not contain any downloadable video, image, audio, or media resource.');
       } finally {
         getBtn.disabled = false;
         getBtnSpinner.style.display = 'none';
@@ -1157,15 +1172,16 @@
       if (!currentVideoData || !currentVideoData.url) return;
       clearError();
       resetProgressUI();
-      const isImage = currentVideoData.mediaType === 'image';
+      const mediaType = currentVideoData.mediaType || 'video';
+      const label = mediaType === 'image' ? 'image' : (mediaType === 'audio' ? 'audio' : (mediaType === 'file' ? 'file' : 'video'));
       const selectedQuality = qualitySelect ? (qualitySelect.value || 'best') : 'best';
 
       downloadBtn.disabled = true;
       downloadBtnSpinner.style.display = 'inline-block';
-      downloadBtnText.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+      downloadBtnText.textContent = `Preparing ${label}...`;
 
       progressBox.style.display = 'block';
-      progressStage.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+      progressStage.textContent = `Preparing ${label}...`;
       progressPercent.textContent = '0%';
       progressBar.style.width = '0%';
       progressBytes.textContent = 'Initializing media transfer...';

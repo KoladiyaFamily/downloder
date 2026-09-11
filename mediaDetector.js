@@ -1,13 +1,14 @@
 'use strict';
 
 /**
- * mediaDetector.js – Safe universal media detection and direct download pipeline.
+ * mediaDetector.js – Safe universal media & file detection and direct download pipeline.
  *
  * Responsibilities:
  * 1. Safe HTTP/HTTPS probing with SSRF protection on every redirect hop.
- * 2. Magic bytes / file signature sniffing (JPEG, PNG, WebP, GIF, AVIF, BMP, MP4, WebM, etc.).
- * 3. Content-Type and header analysis (differentiating media vs HTML/JSON/text).
- * 4. Safe streaming download of direct media files with progress tracking.
+ * 2. Magic bytes / file signature sniffing (JPEG, PNG, WebP, GIF, AVIF, BMP, MP4, WebM, MP3, WAV, OGG, FLAC, AAC, PDF, ZIP, etc.).
+ * 3. Content-Type and header analysis (differentiating Video, Image, Audio, File vs HTML/JSON/Text).
+ * 4. Extraction of embedded media candidates from webpages (OpenGraph, Twitter Cards, HTML5 <video>, <audio>, <img>, schema.org JSON-LD).
+ * 5. Safe streaming download of direct media files with progress tracking.
  */
 
 const http = require('http');
@@ -150,13 +151,16 @@ function detectMagicBytes(buffer) {
     return { type: 'image', ext: '.bmp', contentType: 'image/bmp', format: 'BMP' };
   }
 
-  // AVIF: .... ftyp avif / mif1
+  // AVIF / MP4 / MOV: .... ftyp
   if (buffer.length >= 12 && buffer.slice(4, 8).toString('ascii') === 'ftyp') {
     const brand = buffer.slice(8, 12).toString('ascii');
     if (brand.includes('avif') || brand.includes('mif1')) {
       return { type: 'image', ext: '.avif', contentType: 'image/avif', format: 'AVIF' };
     }
-    // MP4 / MOV / M4V / QuickTime
+    if (brand.includes('M4A ') || brand.includes('isom') && buffer.length < 1000) {
+      // Could be M4A audio or MP4 video
+      return { type: 'video', ext: '.mp4', contentType: 'video/mp4', format: 'MP4' };
+    }
     return { type: 'video', ext: '.mp4', contentType: 'video/mp4', format: 'MP4' };
   }
 
@@ -178,6 +182,44 @@ function detectMagicBytes(buffer) {
   // AVI: RIFF .... AVI
   if (buffer.length >= 12 && buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'AVI ') {
     return { type: 'video', ext: '.avi', contentType: 'video/x-msvideo', format: 'AVI' };
+  }
+
+  // MP3: ID3 header (49 44 33) or MPEG sync word (FF FB / FF F3 / FF F2 / FF E3)
+  if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) {
+    return { type: 'audio', ext: '.mp3', contentType: 'audio/mpeg', format: 'MP3' };
+  }
+  if (buffer[0] === 0xFF && (buffer[1] === 0xFB || buffer[1] === 0xF3 || buffer[1] === 0xF2 || buffer[1] === 0xE3)) {
+    return { type: 'audio', ext: '.mp3', contentType: 'audio/mpeg', format: 'MP3' };
+  }
+
+  // WAV: RIFF .... WAVE
+  if (buffer.length >= 12 && buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WAVE') {
+    return { type: 'audio', ext: '.wav', contentType: 'audio/wav', format: 'WAV' };
+  }
+
+  // OGG / Opus: OggS
+  if (buffer.slice(0, 4).toString('ascii') === 'OggS') {
+    return { type: 'audio', ext: '.ogg', contentType: 'audio/ogg', format: 'OGG' };
+  }
+
+  // FLAC: fLaC
+  if (buffer.slice(0, 4).toString('ascii') === 'fLaC') {
+    return { type: 'audio', ext: '.flac', contentType: 'audio/flac', format: 'FLAC' };
+  }
+
+  // PDF: %PDF
+  if (buffer.slice(0, 4).toString('ascii') === '%PDF') {
+    return { type: 'file', ext: '.pdf', contentType: 'application/pdf', format: 'PDF' };
+  }
+
+  // ZIP: PK\x03\x04
+  if (buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) {
+    return { type: 'file', ext: '.zip', contentType: 'application/zip', format: 'ZIP' };
+  }
+
+  // GZIP: 1F 8B
+  if (buffer[0] === 0x1F && buffer[1] === 0x8B) {
+    return { type: 'file', ext: '.gz', contentType: 'application/gzip', format: 'GZIP' };
   }
 
   // Detect HTML / XML / JSON / Text
@@ -219,7 +261,35 @@ const VIDEO_MIME_MAP = {
   'video/x-msvideo': '.avi',
   'video/x-flv': '.flv',
   'video/x-m4v': '.m4v',
-  'video/ogg': '.ogv'
+  'video/ogg': '.ogv',
+  'video/3gpp': '.3gp'
+};
+
+const AUDIO_MIME_MAP = {
+  'audio/mpeg': '.mp3',
+  'audio/mp3': '.mp3',
+  'audio/mp4': '.m4a',
+  'audio/x-m4a': '.m4a',
+  'audio/wav': '.wav',
+  'audio/wave': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/ogg': '.ogg',
+  'audio/opus': '.opus',
+  'audio/aac': '.aac',
+  'audio/flac': '.flac',
+  'audio/x-flac': '.flac',
+  'audio/webm': '.weba'
+};
+
+const FILE_MIME_MAP = {
+  'application/pdf': '.pdf',
+  'application/zip': '.zip',
+  'application/x-zip-compressed': '.zip',
+  'application/gzip': '.gz',
+  'application/x-tar': '.tar',
+  'application/x-7z-compressed': '.7z',
+  'application/vnd.rar': '.rar',
+  'application/octet-stream': '.bin'
 };
 
 // Extract a clean display title / filename from URL or Content-Disposition
@@ -274,9 +344,9 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
       path: parsedUrl.pathname + parsedUrl.search,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'image/*, video/*, */*;q=0.8',
+        'Accept': 'image/*, video/*, audio/*, application/*, */*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Range': 'bytes=0-4096' // Fast initial bytes fetch
+        'Range': 'bytes=0-4096'
       },
       timeout: 10000
     };
@@ -287,7 +357,7 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
       // Handle redirects safely
       if ([301, 302, 303, 307, 308].includes(statusCode)) {
         const location = res.headers['location'];
-        res.resume(); // Discard stream
+        res.resume();
         if (!location) {
           return resolve({ success: false, error: 'Redirect without location header.' });
         }
@@ -318,7 +388,6 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
       const contentLength = parseInt(res.headers['content-length'] || '0', 10);
       const disposition = res.headers['content-disposition'] || null;
 
-      // Sniff first chunk for magic bytes
       const chunks = [];
       let totalBytes = 0;
       let handled = false;
@@ -330,7 +399,7 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
         const buffer = Buffer.concat(chunks);
         const magic = detectMagicBytes(buffer);
 
-        // Check if Content-Type or Magic Bytes indicate Image
+        // 1. Image
         if (IMAGE_MIME_MAP[rawContentType] || (magic && magic.type === 'image')) {
           const ext = IMAGE_MIME_MAP[rawContentType] || (magic ? magic.ext : '.jpg');
           const filename = extractFilenameFromUrl(ssrf.sanitizedUrl, disposition, ext);
@@ -346,7 +415,7 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
           });
         }
 
-        // Check if Content-Type or Magic Bytes indicate Video
+        // 2. Video
         if (VIDEO_MIME_MAP[rawContentType] || (magic && magic.type === 'video')) {
           const ext = VIDEO_MIME_MAP[rawContentType] || (magic ? magic.ext : '.mp4');
           const filename = extractFilenameFromUrl(ssrf.sanitizedUrl, disposition, ext);
@@ -362,20 +431,52 @@ function safeProbeUrl(targetUrl, maxRedirects = 5) {
           });
         }
 
-        // Detected HTML or non-media
-        if (rawContentType.includes('text/html') || rawContentType.includes('application/json') || (magic && magic.type === 'non_media')) {
+        // 3. Audio
+        if (AUDIO_MIME_MAP[rawContentType] || (magic && magic.type === 'audio')) {
+          const ext = AUDIO_MIME_MAP[rawContentType] || (magic ? magic.ext : '.mp3');
+          const filename = extractFilenameFromUrl(ssrf.sanitizedUrl, disposition, ext);
           return resolve({
-            success: false,
-            isNonMedia: true,
-            error: 'This URL does not contain a supported downloadable video or image.'
+            success: true,
+            mediaType: 'audio',
+            contentType: rawContentType || (magic ? magic.contentType : 'audio/mpeg'),
+            ext,
+            size: contentLength > 0 ? contentLength : totalBytes,
+            filename,
+            title: filename.replace(/\.[^.]+$/, ''),
+            url: ssrf.sanitizedUrl
           });
         }
 
-        // Unknown binary or other format
+        // 4. File / Document / Archive
+        if ((FILE_MIME_MAP[rawContentType] && rawContentType !== 'application/octet-stream') || (magic && magic.type === 'file')) {
+          const ext = FILE_MIME_MAP[rawContentType] || (magic ? magic.ext : '.bin');
+          const filename = extractFilenameFromUrl(ssrf.sanitizedUrl, disposition, ext);
+          return resolve({
+            success: true,
+            mediaType: 'file',
+            contentType: rawContentType || (magic ? magic.contentType : 'application/octet-stream'),
+            ext,
+            size: contentLength > 0 ? contentLength : totalBytes,
+            filename,
+            title: filename.replace(/\.[^.]+$/, ''),
+            url: ssrf.sanitizedUrl
+          });
+        }
+
+        // 5. HTML or Non-Media Webpage
+        if (rawContentType.includes('text/html') || rawContentType.includes('application/json') || (magic && magic.type === 'non_media')) {
+          return resolve({
+            success: false,
+            isHtml: true,
+            isNonMedia: true,
+            error: 'This URL points to an HTML webpage.'
+          });
+        }
+
         return resolve({
           success: false,
           isNonMedia: true,
-          error: 'This URL does not contain a supported downloadable video or image.'
+          error: 'This URL does not contain a supported downloadable media resource.'
         });
       };
 
@@ -439,7 +540,7 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
       path: parsedUrl.pathname + parsedUrl.search,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'image/*, video/*, */*;q=0.8'
+        'Accept': 'image/*, video/*, audio/*, application/*, */*;q=0.8'
       },
       timeout: 60000
     };
@@ -469,14 +570,28 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
       const totalLength = parseInt(res.headers['content-length'] || '0', 10);
       const disposition = res.headers['content-disposition'] || null;
 
-      // Reject immediate HTML Content-Type
       if (rawContentType.includes('text/html') || rawContentType.includes('application/json')) {
         res.resume();
-        return reject(new Error('This URL does not contain a supported downloadable video or image.'));
+        return reject(new Error('This URL does not contain a supported downloadable media or file.'));
       }
 
-      const isImage = !!IMAGE_MIME_MAP[rawContentType];
-      let ext = IMAGE_MIME_MAP[rawContentType] || VIDEO_MIME_MAP[rawContentType] || '.mp4';
+      let detectedMediaType = 'video';
+      let ext = '.mp4';
+
+      if (IMAGE_MIME_MAP[rawContentType]) {
+        detectedMediaType = 'image';
+        ext = IMAGE_MIME_MAP[rawContentType];
+      } else if (AUDIO_MIME_MAP[rawContentType]) {
+        detectedMediaType = 'audio';
+        ext = AUDIO_MIME_MAP[rawContentType];
+      } else if (FILE_MIME_MAP[rawContentType]) {
+        detectedMediaType = 'file';
+        ext = FILE_MIME_MAP[rawContentType];
+      } else if (VIDEO_MIME_MAP[rawContentType]) {
+        detectedMediaType = 'video';
+        ext = VIDEO_MIME_MAP[rawContentType];
+      }
+
       const tempFilePath = path.join(tempDir, `${fileId}${ext}`);
       const fileStream = fs.createWriteStream(tempFilePath);
 
@@ -499,7 +614,6 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
       res.on('data', (chunk) => {
         if (isTerminated) return;
 
-        // Verify magic bytes on first chunk
         if (!firstChunkChecked) {
           firstChunkChecked = true;
           const magic = detectMagicBytes(chunk);
@@ -508,16 +622,16 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
             req.destroy();
             fileStream.destroy();
             try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch (_) {}
-            return reject(new Error('This URL does not contain a supported downloadable video or image.'));
+            return reject(new Error('This URL does not contain a supported downloadable media or file.'));
           }
           if (magic && magic.ext) {
             ext = magic.ext;
+            detectedMediaType = magic.type;
           }
         }
 
         downloadedBytes += chunk.length;
 
-        // Size limit guard: 1000MB max
         if (downloadedBytes > 1000 * 1024 * 1024) {
           isTerminated = true;
           req.destroy();
@@ -562,10 +676,10 @@ function downloadDirectMediaWithProgress(targetUrl, fileId, tempDir, onProgress,
               filePath: tempFilePath,
               size: stat.size,
               ext,
-              contentType: rawContentType || (isImage ? 'image/jpeg' : 'video/mp4'),
-              mediaType: isImage ? 'image' : 'video',
-              hasVideo: !isImage,
-              hasAudio: false,
+              contentType: rawContentType || (detectedMediaType === 'image' ? 'image/jpeg' : (detectedMediaType === 'audio' ? 'audio/mpeg' : 'video/mp4')),
+              mediaType: detectedMediaType,
+              hasVideo: detectedMediaType === 'video',
+              hasAudio: detectedMediaType === 'video' || detectedMediaType === 'audio',
               filename
             });
           } catch (e) {
@@ -613,7 +727,8 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/\\u0026/g, '&');
+    .replace(/\\u0026/g, '&')
+    .replace(/\\/g, '');
 }
 
 function extractPageMedia(targetUrl, maxRedirects = 5) {
@@ -638,7 +753,7 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
       path: parsedUrl.pathname + parsedUrl.search,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,audio/*,video/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
@@ -665,7 +780,7 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
       }
 
       const contentType = (res.headers['content-type'] || '').toLowerCase();
-      if (IMAGE_MIME_MAP[contentType] || VIDEO_MIME_MAP[contentType]) {
+      if (IMAGE_MIME_MAP[contentType] || VIDEO_MIME_MAP[contentType] || AUDIO_MIME_MAP[contentType] || FILE_MIME_MAP[contentType]) {
         res.destroy();
         return resolve(await safeProbeUrl(ssrf.sanitizedUrl));
       }
@@ -689,31 +804,31 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
         if (titleOg && titleOg[1]) title = decodeHtmlEntities(titleOg[1].trim());
         else if (titleTag && titleTag[1]) title = decodeHtmlEntities(titleTag[1].trim());
 
-        // Explicitly exclude non-media informational / reference websites
-        const isNonMediaHost = /wikipedia\.org|wikimedia\.org|google\.com|bing\.com|yahoo\.com|github\.com|stackoverflow\.com|gitlab\.com|bitbucket\.org|httpbin\.org/i.test(parsedUrl.hostname);
-        const isMediaHost = !isNonMediaHost && /instagram\.com|facebook\.com|tiktok\.com|reddit\.com|twitter\.com|x\.com|pinterest\.com|imgur\.com|flickr\.com|giphy\.com|tenor\.com|threads\.net|tumblr\.com|vsco\.co|deviantart\.com|snapchat\.com|bilibili\.com|weibo\.com/i.test(parsedUrl.hostname);
-        const hasMediaMeta = !isNonMediaHost && (
-          /<(?:meta\s+name=["']medium["']\s+content=["'](?:image|video)["']|meta\s+property=["']og:type["']\s+content=["'](?:video|video\.[^"']+|photo|image|image\.[^"']+)["'])/i.test(body) ||
-          body.includes('"@type":"VideoObject"') || body.includes('"@type": "VideoObject"')
-        );
+        // Check if explicitly an informational/search engine site without media objects
+        const isSearchOrEncyclopedia = /wikipedia\.org|wikimedia\.org|google\.com|bing\.com|yahoo\.com|github\.com|stackoverflow\.com|gitlab\.com|bitbucket\.org|httpbin\.org/i.test(parsedUrl.hostname);
+        const hasExplicitMediaObject = body.includes('"@type":"VideoObject"') || body.includes('"@type": "VideoObject"') ||
+                                       body.includes('"@type":"AudioObject"') || body.includes('"@type": "AudioObject"') ||
+                                       body.includes('"@type":"ImageObject"') || body.includes('"@type": "ImageObject"') ||
+                                       /<meta\s+[^>]*property=["']og:video/i.test(body) ||
+                                       /<meta\s+[^>]*property=["']og:audio/i.test(body);
 
-        // Only extract embedded page media if it is a media platform or explicit media object
-        if (!isMediaHost && !hasMediaMeta) {
+        if (isSearchOrEncyclopedia && !hasExplicitMediaObject) {
           return resolve({
             success: false,
             isNonMedia: true,
-            error: 'This URL does not contain a supported downloadable video or image.'
+            error: 'This URL does not contain a supported downloadable video, audio, image, or file.'
           });
         }
 
-        // Extract Video Candidates
+        // 1. Extract Video Candidates
         const videoCandidates = [];
-        const ogVideo = body.match(/<meta\s+[^>]*property=["']og:video(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/i) ||
-                        body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:video(?::secure_url|:url)?["']/i);
-        if (ogVideo && ogVideo[1]) videoCandidates.push(decodeHtmlEntities(ogVideo[1]));
+        const ogVideoMatches = body.matchAll(/<meta\s+[^>]*property=["']og:video(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/gi);
+        for (const m of ogVideoMatches) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
+        const ogVideoRev = body.matchAll(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:video(?::secure_url|:url)?["']/gi);
+        for (const m of ogVideoRev) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
 
-        const html5Video = body.match(/<video[^>]*src=["']([^"']+)["']/i) || body.match(/<source[^>]*src=["']([^"']+)["'][^>]*type=["']video\//i);
-        if (html5Video && html5Video[1]) videoCandidates.push(decodeHtmlEntities(html5Video[1]));
+        const html5Video = body.matchAll(/<(?:video|source)[^>]*src=["']([^"']+\.(?:mp4|webm|mov|m4v|mkv)[^"']*)["']/gi);
+        for (const m of html5Video) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
 
         for (const rawCandidate of videoCandidates) {
           try {
@@ -734,15 +849,42 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
           } catch (_) {}
         }
 
-        // Extract Image Candidates
-        const imageCandidates = [];
-        const ogImage = body.match(/<meta\s+[^>]*property=["']og:image(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/i) ||
-                        body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:image(?::secure_url|:url)?["']/i);
-        if (ogImage && ogImage[1]) imageCandidates.push(decodeHtmlEntities(ogImage[1]));
+        // 2. Extract Audio Candidates
+        const audioCandidates = [];
+        const ogAudioMatches = body.matchAll(/<meta\s+[^>]*property=["']og:audio(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/gi);
+        for (const m of ogAudioMatches) if (m[1]) audioCandidates.push(decodeHtmlEntities(m[1]));
 
-        const twitterImage = body.match(/<meta\s+[^>]*name=["']twitter:image(?::src)?["']\s+content=["']([^"']+)["']/i) ||
-                              body.match(/<meta\s+[^>]*content=["']([^"']+)["']\s+name=["']twitter:image(?::src)?["']/i);
-        if (twitterImage && twitterImage[1]) imageCandidates.push(decodeHtmlEntities(twitterImage[1]));
+        const html5Audio = body.matchAll(/<(?:audio|source)[^>]*src=["']([^"']+\.(?:mp3|m4a|wav|ogg|opus|aac|flac)[^"']*)["']/gi);
+        for (const m of html5Audio) if (m[1]) audioCandidates.push(decodeHtmlEntities(m[1]));
+
+        for (const rawCandidate of audioCandidates) {
+          try {
+            const absoluteCandidate = new URL(rawCandidate, ssrf.sanitizedUrl).href;
+            const probe = await safeProbeUrl(absoluteCandidate);
+            if (probe.success && probe.mediaType === 'audio') {
+              return resolve({
+                success: true,
+                mediaType: 'audio',
+                title: title || probe.title || 'Audio',
+                url: absoluteCandidate,
+                thumbnail: null,
+                ext: probe.ext || '.mp3',
+                size: probe.size || 0,
+                uploader: parsedUrl.hostname
+              });
+            }
+          } catch (_) {}
+        }
+
+        // 3. Extract Image Candidates
+        const imageCandidates = [];
+        const ogImageMatches = body.matchAll(/<meta\s+[^>]*property=["']og:image(?::secure_url|:url)?["']\s+content=["']([^"']+)["']/gi);
+        for (const m of ogImageMatches) if (m[1]) imageCandidates.push(decodeHtmlEntities(m[1]));
+        const ogImageRev = body.matchAll(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:image(?::secure_url|:url)?["']/gi);
+        for (const m of ogImageRev) if (m[1]) imageCandidates.push(decodeHtmlEntities(m[1]));
+
+        const twitterImage = body.matchAll(/<meta\s+[^>]*name=["']twitter:image(?::src)?["']\s+content=["']([^"']+)["']/gi);
+        for (const m of twitterImage) if (m[1]) imageCandidates.push(decodeHtmlEntities(m[1]));
 
         const jsonLdMatches = body.match(/"(?:image|thumbnailUrl|contentUrl)"\s*:\s*["']([^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/gi);
         if (jsonLdMatches) {
@@ -752,7 +894,6 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
           }
         }
 
-        // Probe Image Candidates
         for (const rawCandidate of imageCandidates) {
           try {
             const absoluteCandidate = new URL(rawCandidate, ssrf.sanitizedUrl).href;
@@ -775,7 +916,7 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
         return resolve({
           success: false,
           isNonMedia: true,
-          error: 'This URL does not contain a supported downloadable video or image.'
+          error: 'This URL does not contain any downloadable video, image, audio, or media resource.'
         });
       });
 
@@ -795,5 +936,7 @@ module.exports = {
   extractPageMedia,
   downloadDirectMediaWithProgress,
   IMAGE_MIME_MAP,
-  VIDEO_MIME_MAP
+  VIDEO_MIME_MAP,
+  AUDIO_MIME_MAP,
+  FILE_MIME_MAP
 };

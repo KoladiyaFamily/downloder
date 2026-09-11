@@ -604,7 +604,7 @@ function inspectMediaStreams(filePath) {
   });
 }
 
-// POST /api/info - Inspect metadata, direct media, images, and available qualities
+// POST /api/info - Universal media inspection (Videos, Images, Audio, Platform URLs, Direct Files)
 app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) => {
   const { url } = req.body || {};
 
@@ -621,50 +621,64 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
     return res.status(400).json({ error: 'Invalid URL format.' });
   }
 
-  const urlExt = path.extname(parsedUrl.pathname).toLowerCase();
-  const isDirectImageExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.svg'].includes(urlExt);
-  const isDirectVideoExt = ['.mp4', '.webm', '.mov', '.mkv', '.m4v', '.avi', '.flv', '.ogv'].includes(urlExt);
-
-  // Fast direct probe for obvious media extensions
-  if (isDirectImageExt || isDirectVideoExt) {
-    const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-    if (probe.success) {
-      if (probe.mediaType === 'image') {
-        return res.json({
-          success: true,
-          mediaType: 'image',
-          title: probe.title || 'Image',
-          thumbnail: cleanUrl,
-          duration: null,
-          durationSec: 0,
-          uploader: parsedUrl.hostname,
-          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-          url: cleanUrl
-        });
-      }
-      if (probe.mediaType === 'video') {
-        return res.json({
-          success: true,
-          mediaType: 'video',
-          title: probe.title || 'Video',
-          thumbnail: null,
-          duration: null,
-          durationSec: 0,
-          uploader: parsedUrl.hostname,
-          qualities: [{ label: 'Original Quality', value: 'direct' }],
-          url: cleanUrl
-        });
-      }
+  // Step 1: Probe direct resource (follows redirects, validates SSRF, sniffs Content-Type and magic bytes)
+  const probe = await mediaDetector.safeProbeUrl(cleanUrl);
+  if (probe.success) {
+    if (probe.mediaType === 'image') {
+      return res.json({
+        success: true,
+        mediaType: 'image',
+        title: probe.title || 'Image',
+        thumbnail: cleanUrl,
+        duration: null,
+        durationSec: 0,
+        uploader: parsedUrl.hostname,
+        qualities: [{ label: 'Full Resolution Image', value: 'original' }],
+        url: cleanUrl
+      });
     }
-    if (probe.isNonMedia) {
-      return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
+    if (probe.mediaType === 'video') {
+      return res.json({
+        success: true,
+        mediaType: 'video',
+        title: probe.title || 'Video',
+        thumbnail: null,
+        duration: null,
+        durationSec: 0,
+        uploader: parsedUrl.hostname,
+        qualities: [{ label: 'Original Quality', value: 'direct' }],
+        url: cleanUrl
+      });
     }
-    if (probe.error && !isDirectVideoExt) {
-      return res.status(400).json({ error: probe.error });
+    if (probe.mediaType === 'audio') {
+      return res.json({
+        success: true,
+        mediaType: 'audio',
+        title: probe.title || 'Audio Track',
+        thumbnail: null,
+        duration: null,
+        durationSec: 0,
+        uploader: parsedUrl.hostname,
+        qualities: [{ label: 'Original Audio', value: 'direct' }],
+        url: cleanUrl
+      });
+    }
+    if (probe.mediaType === 'file') {
+      return res.json({
+        success: true,
+        mediaType: 'file',
+        title: probe.title || 'Downloadable File',
+        thumbnail: null,
+        duration: null,
+        durationSec: 0,
+        uploader: parsedUrl.hostname,
+        qualities: [{ label: 'Original File', value: 'direct' }],
+        url: cleanUrl
+      });
     }
   }
 
-  // Try yt-dlp for platform extraction
+  // Step 2: If direct probe is an HTML webpage, pass through yt-dlp platform extraction
   const args = [
     ...getYtDlpArgs(),
     '--dump-single-json',
@@ -719,72 +733,67 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
 
         const isImageExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp', 'svg'].includes((info.ext || '').toLowerCase());
         const isGeneric = info.extractor === 'generic' || info.extractor_key === 'Generic';
-        const hasNoRealVideoStreams = (info.vcodec === 'none' || !info.vcodec || info.vcodec === 'unknown') &&
-                                      (info.acodec === 'none' || !info.acodec || info.acodec === 'unknown') &&
-                                      (!info.duration || info.duration === 0);
+        const hasNoRealStreams = (info.vcodec === 'none' || !info.vcodec || info.vcodec === 'unknown') &&
+                                 (info.acodec === 'none' || !info.acodec || info.acodec === 'unknown') &&
+                                 (!info.duration || info.duration === 0);
 
-        if (isImageExt || isGeneric || hasNoRealVideoStreams) {
+        if (isImageExt || isGeneric || hasNoRealStreams) {
           const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
           if (pageMedia.success) {
-            if (pageMedia.mediaType === 'image') {
-              return res.json({
-                success: true,
-                mediaType: 'image',
-                title: (info.title && !isGeneric) ? info.title : (pageMedia.title || 'Image'),
-                thumbnail: pageMedia.thumbnail || cleanUrl,
-                duration: null,
-                durationSec: 0,
-                uploader: info.uploader || pageMedia.uploader || parsedUrl.hostname,
-                qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-                url: pageMedia.url || cleanUrl
-              });
-            }
-            if (pageMedia.mediaType === 'video') {
-              return res.json({
-                success: true,
-                mediaType: 'video',
-                title: (info.title && !isGeneric) ? info.title : (pageMedia.title || 'Video'),
-                thumbnail: pageMedia.thumbnail || null,
-                duration: formatDuration(info.duration),
-                durationSec: info.duration || 0,
-                uploader: info.uploader || pageMedia.uploader || parsedUrl.hostname,
-                qualities: [{ label: 'Original Quality', value: 'direct' }],
-                url: pageMedia.url || cleanUrl
-              });
-            }
+            return res.json({
+              success: true,
+              mediaType: pageMedia.mediaType,
+              title: (info.title && !isGeneric) ? info.title : (pageMedia.title || (pageMedia.mediaType === 'image' ? 'Image' : (pageMedia.mediaType === 'audio' ? 'Audio' : 'Video'))),
+              thumbnail: pageMedia.thumbnail || (pageMedia.mediaType === 'image' ? pageMedia.url : null),
+              duration: pageMedia.duration || formatDuration(info.duration),
+              durationSec: info.duration || 0,
+              uploader: info.uploader || pageMedia.uploader || parsedUrl.hostname,
+              qualities: pageMedia.mediaType === 'image' ? [{ label: 'Full Resolution Image', value: 'original' }] : (pageMedia.mediaType === 'audio' ? [{ label: 'Original Audio', value: 'direct' }] : [{ label: 'Original Quality', value: 'direct' }]),
+              url: pageMedia.url || cleanUrl
+            });
           }
-          if (pageMedia.isNonMedia || isGeneric || hasNoRealVideoStreams) {
-            return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
+          if (pageMedia.isNonMedia || isGeneric || hasNoRealStreams) {
+            return res.status(400).json({ error: 'This URL does not contain any downloadable video, image, audio, or media resource.' });
           }
         }
 
-        // Extract real available video qualities from format list
-        const availableQualities = [{ label: 'Best Quality', value: 'best' }];
-        if (Array.isArray(info.formats)) {
-          const heights = new Set(
-            info.formats
-              .filter(f => f && f.vcodec && f.vcodec !== 'none' && f.height)
-              .map(f => f.height)
-          );
+        // Determine if audio-only platform
+        const isAudioExtractor = (info.vcodec === 'none' || !info.vcodec) && (info.acodec && info.acodec !== 'none');
+        const mediaType = isAudioExtractor ? 'audio' : 'video';
 
-          const tiers = [
-            { height: 1080, label: '1080p', value: '1080p' },
-            { height: 720, label: '720p', value: '720p' },
-            { height: 480, label: '480p', value: '480p' },
-            { height: 360, label: '360p', value: '360p' }
-          ];
+        // Extract real available video & audio qualities from format list
+        const availableQualities = [];
+        if (isAudioExtractor) {
+          availableQualities.push({ label: 'Best Audio Quality', value: 'audio' });
+        } else {
+          availableQualities.push({ label: 'Best Quality', value: 'best' });
+          if (Array.isArray(info.formats)) {
+            const heights = new Set(
+              info.formats
+                .filter(f => f && f.vcodec && f.vcodec !== 'none' && f.height)
+                .map(f => f.height)
+            );
 
-          for (const t of tiers) {
-            if (heights.has(t.height) || [...heights].some(h => Math.abs(h - t.height) <= 20)) {
-              availableQualities.push({ label: t.label, value: t.value });
+            const tiers = [
+              { height: 1080, label: '1080p', value: '1080p' },
+              { height: 720, label: '720p', value: '720p' },
+              { height: 480, label: '480p', value: '480p' },
+              { height: 360, label: '360p', value: '360p' }
+            ];
+
+            for (const t of tiers) {
+              if (heights.has(t.height) || [...heights].some(h => Math.abs(h - t.height) <= 20)) {
+                availableQualities.push({ label: t.label, value: t.value });
+              }
             }
           }
+          availableQualities.push({ label: 'Audio Only (MP3/M4A)', value: 'audio' });
         }
 
         return res.json({
           success: true,
-          mediaType: 'video',
-          title: info.title ? String(info.title).slice(0, 150) : 'Video',
+          mediaType,
+          title: info.title ? String(info.title).slice(0, 150) : (mediaType === 'audio' ? 'Audio Track' : 'Video'),
           thumbnail: (info.thumbnail && typeof info.thumbnail === 'string' && info.thumbnail.startsWith('https://')) ? info.thumbnail : null,
           duration: formatDuration(info.duration),
           durationSec: info.duration || 0,
@@ -795,35 +804,20 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
       } catch (_) {}
     }
 
-    // Step 3: When yt-dlp did not extract a video (e.g. photo post, webpage media, or generic), inspect page for actual media
+    // Step 3: When yt-dlp did not extract media, inspect page for embedded media candidates
     const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
     if (pageMedia.success) {
-      if (pageMedia.mediaType === 'image') {
-        return res.json({
-          success: true,
-          mediaType: 'image',
-          title: pageMedia.title || 'Image',
-          thumbnail: pageMedia.thumbnail || pageMedia.url,
-          duration: null,
-          durationSec: 0,
-          uploader: pageMedia.uploader || parsedUrl.hostname,
-          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-          url: pageMedia.url
-        });
-      }
-      if (pageMedia.mediaType === 'video') {
-        return res.json({
-          success: true,
-          mediaType: 'video',
-          title: pageMedia.title || 'Video',
-          thumbnail: pageMedia.thumbnail || null,
-          duration: null,
-          durationSec: 0,
-          uploader: pageMedia.uploader || parsedUrl.hostname,
-          qualities: [{ label: 'Original Quality', value: 'direct' }],
-          url: pageMedia.url
-        });
-      }
+      return res.json({
+        success: true,
+        mediaType: pageMedia.mediaType,
+        title: pageMedia.title || (pageMedia.mediaType === 'image' ? 'Image' : (pageMedia.mediaType === 'audio' ? 'Audio' : 'Video')),
+        thumbnail: pageMedia.thumbnail || (pageMedia.mediaType === 'image' ? pageMedia.url : null),
+        duration: null,
+        durationSec: 0,
+        uploader: pageMedia.uploader || parsedUrl.hostname,
+        qualities: pageMedia.mediaType === 'image' ? [{ label: 'Full Resolution Image', value: 'original' }] : (pageMedia.mediaType === 'audio' ? [{ label: 'Original Audio', value: 'direct' }] : [{ label: 'Original Quality', value: 'direct' }]),
+        url: pageMedia.url
+      });
     }
 
     // Step 4: If no media was found on the page, check for specific platform error or declare unsupported
@@ -837,10 +831,10 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
     }
 
     if (pageMedia.isNonMedia) {
-      return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
+      return res.status(400).json({ error: 'This URL does not contain any downloadable video, image, audio, or media resource.' });
     }
 
-    const userErr = parseYtDlpError(stderrData, pageMedia.error || 'This URL does not contain a supported downloadable video or image.');
+    const userErr = parseYtDlpError(stderrData, pageMedia.error || 'This URL does not contain any downloadable video, image, audio, or media resource.');
     return res.status(400).json({ error: userErr });
   });
 
@@ -851,35 +845,20 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
 
     const pageMedia = await mediaDetector.extractPageMedia(cleanUrl);
     if (pageMedia.success) {
-      if (pageMedia.mediaType === 'image') {
-        return res.json({
-          success: true,
-          mediaType: 'image',
-          title: pageMedia.title || 'Image',
-          thumbnail: pageMedia.thumbnail || pageMedia.url,
-          duration: null,
-          durationSec: 0,
-          uploader: pageMedia.uploader || parsedUrl.hostname,
-          qualities: [{ label: 'Full Resolution Image', value: 'original' }],
-          url: pageMedia.url
-        });
-      }
-      if (pageMedia.mediaType === 'video') {
-        return res.json({
-          success: true,
-          mediaType: 'video',
-          title: pageMedia.title || 'Video',
-          thumbnail: pageMedia.thumbnail || null,
-          duration: null,
-          durationSec: 0,
-          uploader: pageMedia.uploader || parsedUrl.hostname,
-          qualities: [{ label: 'Original Quality', value: 'direct' }],
-          url: pageMedia.url
-        });
-      }
+      return res.json({
+        success: true,
+        mediaType: pageMedia.mediaType,
+        title: pageMedia.title || (pageMedia.mediaType === 'image' ? 'Image' : (pageMedia.mediaType === 'audio' ? 'Audio' : 'Video')),
+        thumbnail: pageMedia.thumbnail || (pageMedia.mediaType === 'image' ? pageMedia.url : null),
+        duration: null,
+        durationSec: 0,
+        uploader: pageMedia.uploader || parsedUrl.hostname,
+        qualities: pageMedia.mediaType === 'image' ? [{ label: 'Full Resolution Image', value: 'original' }] : (pageMedia.mediaType === 'audio' ? [{ label: 'Original Audio', value: 'direct' }] : [{ label: 'Original Quality', value: 'direct' }]),
+        url: pageMedia.url
+      });
     }
 
-    return res.status(400).json({ error: 'This URL does not contain a supported downloadable video or image.' });
+    return res.status(400).json({ error: 'This URL does not contain any downloadable video, image, audio, or media resource.' });
   });
 });
 
@@ -898,28 +877,34 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
   return new Promise((resolve, reject) => {
     const outputTemplate = path.join(TEMP_DIR, `${fileId}.%(ext)s`);
 
-    // Quality-based format selection with automatic fallback to closest lower quality
-    let formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]'; // Default fast web delivery
-    if (quality === 'best' || quality === '1080p') {
-      formatSelector = 'bv*[height<=1080]+ba/b[height<=1080][vcodec!=none]/bv*+ba/b[vcodec!=none]';
+    // Quality-based format selection
+    let formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+    const isAudioOnly = quality === 'audio';
+
+    if (isAudioOnly) {
+      formatSelector = 'ba/b[vcodec=none]/b';
+    } else if (quality === 'best' || quality === '1080p') {
+      formatSelector = 'bv*[height<=1080]+ba/b[height<=1080][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
     } else if (quality === '720p') {
-      formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]';
+      formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
     } else if (quality === '480p') {
-      formatSelector = 'bv*[height<=480]+ba/b[height<=480][vcodec!=none]/bv*+ba/b[vcodec!=none]';
+      formatSelector = 'bv*[height<=480]+ba/b[height<=480][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
     } else if (quality === '360p') {
-      formatSelector = 'bv*[height<=360]+ba/b[height<=360][vcodec!=none]/bv*+ba/b[vcodec!=none]';
+      formatSelector = 'bv*[height<=360]+ba/b[height<=360][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
     }
 
     const args = [
       ...getYtDlpArgs(),
       '--newline',
       '-f', formatSelector,
-      '--merge-output-format', 'mp4',
-      '--remux-video', 'mp4',
       '--max-filesize', '1000M',
       '-o', outputTemplate,
       cleanUrl
     ];
+
+    if (!isAudioOnly) {
+      args.push('--merge-output-format', 'mp4', '--remux-video', 'mp4');
+    }
 
     let stderrData = '';
     const proc = spawn(pythonCmd, args, { shell: false });
@@ -934,7 +919,7 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       });
     }
 
-    // 5-minute timeout for large video downloads
+    // 5-minute timeout for downloads
     const timer = setTimeout(() => {
       if (!isTerminated) {
         isTerminated = true;
@@ -956,7 +941,6 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       const lines = text.split('\n');
 
       for (const line of lines) {
-        // Detailed download progress: [download]  45.2% of ~512.00MiB at 8.40MiB/s ETA 00:23
         const detailedMatch = line.match(/\[download\]\s+([\d\.]+)%\s+of\s+~?([\d\.]+\s*[a-zA-Z]+)(?:\s+at\s+([\d\.]+\s*[a-zA-Z\/]+))?(?:\s+ETA\s+([\d:]+))?/i);
         if (detailedMatch) {
           const pct = Math.min(99, Math.floor(parseFloat(detailedMatch[1])));
@@ -964,7 +948,6 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
           const rawSpeed = detailedMatch[3] ? detailedMatch[3].trim().replace(/iB/g, 'B') : null;
           const rawEta = detailedMatch[4] ? detailedMatch[4].trim() : null;
 
-          // Compute real downloaded bytes/MB
           let downloadedStr = null;
           const numMatch = rawTotal.match(/([\d\.]+)\s*([a-zA-Z]+)/);
           if (numMatch) {
@@ -1000,7 +983,7 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
             }
           } else if (line.includes('[Merger]') || line.includes('Merging formats') || line.includes('[VideoRemuxer]')) {
             if (onProgress) {
-              onProgress({ stage: 'merging', message: 'Merging video + audio...', detail: 'Merging video and audio streams...' });
+              onProgress({ stage: 'merging', message: 'Merging media streams...', detail: 'Merging audio and video streams...' });
             }
           }
         }
@@ -1013,13 +996,13 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
       clearTimeout(timer);
 
       if (code !== 0) {
-        const parsedErr = parseYtDlpError(stderrData, 'Unable to process this video.');
+        const parsedErr = parseYtDlpError(stderrData, 'Unable to process this media.');
         return reject(new Error(parsedErr));
       }
 
       try {
         if (onProgress) {
-          onProgress({ stage: 'validating', message: 'Validating video...', detail: 'Verifying video streams...' });
+          onProgress({ stage: 'validating', message: 'Validating media...', detail: 'Verifying media streams...' });
         }
 
         const preferredFile = path.join(TEMP_DIR, `${fileId}.mp4`);
@@ -1038,7 +1021,7 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
           return reject(new Error('FILE_NOT_FOUND'));
         }
 
-        // Clean up any lingering .part or stream fragment files
+        // Clean up any lingering fragments
         const allFiles = fs.readdirSync(TEMP_DIR).filter(f => f.startsWith(fileId));
         for (const f of allFiles) {
           const p = path.join(TEMP_DIR, f);
@@ -1047,17 +1030,21 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
           }
         }
 
-        // STREAM INSPECTION: Must have at least one video stream
+        // STREAM INSPECTION: Verify video or audio stream
         const streams = await inspectMediaStreams(finalFilePath);
-        if (!streams.hasVideo) {
-          console.warn(`[REJECTED] Downloaded file ${finalFilePath} has NO video stream.`);
+        if (!streams.hasVideo && !streams.hasAudio) {
+          console.warn(`[REJECTED] Downloaded file ${finalFilePath} has NO media streams.`);
           try { fs.unlinkSync(finalFilePath); } catch (_) {}
-          return reject(new Error('AUDIO_ONLY_REJECTED'));
+          return reject(new Error('NO_MEDIA_STREAMS'));
         }
 
         const stat = fs.statSync(finalFilePath);
-        const ext = streams.container === 'mp4' ? '.mp4' : (streams.container === 'webm' ? '.webm' : path.extname(finalFilePath) || '.mp4');
-        const contentType = ext === '.webm' ? 'video/webm' : 'video/mp4';
+        const isAudioResult = !streams.hasVideo && streams.hasAudio;
+        let ext = path.extname(finalFilePath) || (isAudioResult ? '.m4a' : '.mp4');
+        if (streams.container === 'mp4' && !isAudioResult) ext = '.mp4';
+        if (streams.container === 'webm' && !isAudioResult) ext = '.webm';
+
+        const contentType = isAudioResult ? 'audio/mpeg' : (ext === '.webm' ? 'video/webm' : 'video/mp4');
 
         resolve({
           filePath: finalFilePath,
@@ -1081,18 +1068,10 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
   });
 }
 
-// Universal media download dispatcher (supports yt-dlp platforms, direct videos, and direct images)
+// Universal media download dispatcher (supports yt-dlp platforms, direct videos, images, audio, and files)
 async function prepareMediaDownload(cleanUrl, fileId, onProgress, onProcessCreated, quality = 'best') {
-  const parsed = new URL(cleanUrl);
-  const urlExt = path.extname(parsed.pathname).toLowerCase();
-  const isDirectImageExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.svg'].includes(urlExt);
-
-  if (isDirectImageExt) {
-    return await mediaDetector.downloadDirectMediaWithProgress(cleanUrl, fileId, TEMP_DIR, onProgress, onProcessCreated);
-  }
-
   const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-  if (probe.success && probe.mediaType === 'image') {
+  if (probe.success && (probe.mediaType === 'image' || probe.mediaType === 'audio' || probe.mediaType === 'file')) {
     return await mediaDetector.downloadDirectMediaWithProgress(cleanUrl, fileId, TEMP_DIR, onProgress, onProcessCreated);
   }
 
