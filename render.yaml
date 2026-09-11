@@ -10,9 +10,9 @@ services:
     buildCommand: >-
       npm install &&
       python3 -m venv /opt/venv &&
-      /opt/venv/bin/python -m pip install --no-cache-dir -U yt-dlp &&
+      /opt/venv/bin/python -m pip install --no-cache-dir -U yt-dlp curl-cffi opencv-python-headless numpy pillow &&
       /opt/venv/bin/python -m yt_dlp --version &&
-      /opt/venv/bin/python -c "import yt_dlp; print('yt_dlp import OK:', yt_dlp.version.__version__)"
+      /opt/venv/bin/python -c "import yt_dlp, cv2, numpy, PIL; print('Imports OK: yt-dlp', yt_dlp.version.__version__, 'cv2', cv2.__version__)"
     startCommand: node server.js
     autoDeploy: true
     disk:
