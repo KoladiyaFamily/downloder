@@ -543,9 +543,14 @@ function getYtDlpArgs() {
     '--force-ipv4',
     '--js-runtimes', 'node',
     '--impersonate', 'chrome',
-    '--extractor-args', 'youtube:player_client=ios,android,tv;player_skip=webpage,configs',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
   ];
+
+  // Optional custom extractor arguments (e.g. for datacenter bot bypass)
+  const extractorArgs = process.env.YOUTUBE_EXTRACTOR_ARGS || (process.env.YOUTUBE_PLAYER_CLIENT ? `youtube:player_client=${process.env.YOUTUBE_PLAYER_CLIENT.trim()}` : null);
+  if (extractorArgs) {
+    args.push('--extractor-args', extractorArgs);
+  }
 
   // Optional authenticated proxy support for datacenter environments
   const proxy = process.env.YT_DLP_PROXY || process.env.PROXY || process.env.HTTPS_PROXY;
@@ -757,36 +762,82 @@ app.post('/api/info', requireAuth, rateLimiter(25, 60 * 1000), async (req, res) 
           }
         }
 
-        // Determine if audio-only platform
-        const isAudioExtractor = (info.vcodec === 'none' || !info.vcodec) && (info.acodec && info.acodec !== 'none');
-        const mediaType = isAudioExtractor ? 'audio' : 'video';
+        // Check if video formats exist anywhere in the extracted format list, root vcodec, dimensions, or ext
+        function isVideoFormat(f) {
+          if (!f) return false;
+          if (f.vcodec && f.vcodec !== 'none' && f.vcodec !== 'unknown') return true;
+          if (f.video_ext && f.video_ext !== 'none') return true;
+          if ((f.height && f.height > 0) || (f.width && f.width > 0)) return true;
+          if (f.resolution && !/audio\s*only/i.test(f.resolution)) return true;
+          if (f.format_note && !/audio\s*only/i.test(f.format_note) && (/p\b/i.test(f.format_note) || /video/i.test(f.format_note))) return true;
+          const ext = (f.ext || '').toLowerCase();
+          if (['mp4', 'webm', 'mkv', 'mov', 'avi', 'flv', 'm4v', '3gp'].includes(ext) && (!f.vcodec || f.vcodec !== 'none')) return true;
+          return false;
+        }
+
+        const hasVideoFormats = Array.isArray(info.formats) && info.formats.some(isVideoFormat);
+        const hasRootVideo = info.vcodec && info.vcodec !== 'none' && info.vcodec !== 'unknown';
+        const hasVideoDimensions = (info.width && info.width > 0) || (info.height && info.height > 0);
+        const hasVideoExt = ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v', 'flv', '3gp', 'ogv'].includes((info.ext || '').toLowerCase());
+        const isExplicitVideoType = info._type === 'video' || info.extractor === 'youtube' || /video/i.test(info.extractor || '');
+
+        const isVideo = hasVideoFormats || hasRootVideo || hasVideoDimensions || hasVideoExt || isExplicitVideoType;
+
+        // Check if strictly audio-only (audio format/extension and zero video attributes)
+        const isAudioOnlyExt = ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac', 'weba', 'aac'].includes((info.ext || '').toLowerCase());
+        const isAudioOnly = !isVideo && isAudioOnlyExt;
+
+        const mediaType = isAudioOnly ? 'audio' : 'video';
 
         // Extract real available video & audio qualities from format list
         const availableQualities = [];
-        if (isAudioExtractor) {
+        if (mediaType === 'audio') {
           availableQualities.push({ label: 'Best Audio Quality', value: 'audio' });
         } else {
           availableQualities.push({ label: 'Best Quality', value: 'best' });
+
+          const rawHeights = [];
+          if (info.height && info.height > 0) rawHeights.push(info.height);
+
           if (Array.isArray(info.formats)) {
-            const heights = new Set(
-              info.formats
-                .filter(f => f && f.vcodec && f.vcodec !== 'none' && f.height)
-                .map(f => f.height)
-            );
-
-            const tiers = [
-              { height: 1080, label: '1080p', value: '1080p' },
-              { height: 720, label: '720p', value: '720p' },
-              { height: 480, label: '480p', value: '480p' },
-              { height: 360, label: '360p', value: '360p' }
-            ];
-
-            for (const t of tiers) {
-              if (heights.has(t.height) || [...heights].some(h => Math.abs(h - t.height) <= 20)) {
-                availableQualities.push({ label: t.label, value: t.value });
+            for (const f of info.formats) {
+              if (f.height && f.height > 0) {
+                rawHeights.push(f.height);
+              } else if (f.format_note) {
+                const m = f.format_note.match(/(\d{3,4})p/i);
+                if (m) rawHeights.push(parseInt(m[1], 10));
+              } else if (f.resolution) {
+                const m = f.resolution.match(/(\d{3,4})x(\d{3,4})/i);
+                if (m) rawHeights.push(Math.min(parseInt(m[1], 10), parseInt(m[2], 10)));
               }
             }
           }
+
+          const distinctHeights = Array.from(new Set(rawHeights.filter(h => h && h > 0))).sort((a, b) => b - a);
+
+          const standardTiers = [
+            { height: 2160, label: '4K (2160p)', value: '2160p' },
+            { height: 1440, label: '2K (1440p)', value: '1440p' },
+            { height: 1080, label: '1080p', value: '1080p' },
+            { height: 720, label: '720p', value: '720p' },
+            { height: 480, label: '480p', value: '480p' },
+            { height: 360, label: '360p', value: '360p' }
+          ];
+
+          const addedValues = new Set();
+          for (const tier of standardTiers) {
+            if (distinctHeights.some(h => Math.abs(h - tier.height) <= 30)) {
+              availableQualities.push({ label: tier.label, value: tier.value });
+              addedValues.add(tier.value);
+            }
+          }
+
+          if (addedValues.size === 0 && distinctHeights.length > 0) {
+            for (const h of distinctHeights.slice(0, 4)) {
+              availableQualities.push({ label: `${h}p`, value: `${h}p` });
+            }
+          }
+
           availableQualities.push({ label: 'Audio Only (MP3/M4A)', value: 'audio' });
         }
 
@@ -878,19 +929,28 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
     const outputTemplate = path.join(TEMP_DIR, `${fileId}.%(ext)s`);
 
     // Quality-based format selection
-    let formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+    let formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
     const isAudioOnly = quality === 'audio';
 
     if (isAudioOnly) {
       formatSelector = 'ba/b[vcodec=none]/b';
-    } else if (quality === 'best' || quality === '1080p') {
-      formatSelector = 'bv*[height<=1080]+ba/b[height<=1080][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+    } else if (quality === 'best' || quality === '2160p') {
+      formatSelector = 'bv*+ba/b[vcodec!=none]/bv*/b';
+    } else if (quality === '1440p') {
+      formatSelector = 'bv*[height<=1440]+ba/b[height<=1440][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
+    } else if (quality === '1080p') {
+      formatSelector = 'bv*[height<=1080]+ba/b[height<=1080][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
     } else if (quality === '720p') {
-      formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+      formatSelector = 'bv*[height<=720]+ba/b[height<=720][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
     } else if (quality === '480p') {
-      formatSelector = 'bv*[height<=480]+ba/b[height<=480][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+      formatSelector = 'bv*[height<=480]+ba/b[height<=480][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
     } else if (quality === '360p') {
-      formatSelector = 'bv*[height<=360]+ba/b[height<=360][vcodec!=none]/bv*+ba/b[vcodec!=none]/ba/b';
+      formatSelector = 'bv*[height<=360]+ba/b[height<=360][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b';
+    } else if (quality && typeof quality === 'string' && quality.endsWith('p')) {
+      const h = parseInt(quality, 10);
+      if (!isNaN(h) && h > 0) {
+        formatSelector = `bv*[height<=${h}]+ba/b[height<=${h}][vcodec!=none]/bv*+ba/b[vcodec!=none]/bv*/b`;
+      }
     }
 
     const args = [
@@ -1071,8 +1131,13 @@ function executeDownloadWithProgress(cleanUrl, fileId, onProgress, onProcessCrea
 // Universal media download dispatcher (supports yt-dlp platforms, direct videos, images, audio, and files)
 async function prepareMediaDownload(cleanUrl, fileId, onProgress, onProcessCreated, quality = 'best') {
   const probe = await mediaDetector.safeProbeUrl(cleanUrl);
-  if (probe.success && (probe.mediaType === 'image' || probe.mediaType === 'audio' || probe.mediaType === 'file')) {
-    return await mediaDetector.downloadDirectMediaWithProgress(cleanUrl, fileId, TEMP_DIR, onProgress, onProcessCreated);
+  if (probe.success) {
+    if (probe.mediaType === 'image' || probe.mediaType === 'audio' || probe.mediaType === 'file') {
+      return await mediaDetector.downloadDirectMediaWithProgress(cleanUrl, fileId, TEMP_DIR, onProgress, onProcessCreated);
+    }
+    if (probe.mediaType === 'video' && quality !== 'audio') {
+      return await mediaDetector.downloadDirectMediaWithProgress(cleanUrl, fileId, TEMP_DIR, onProgress, onProcessCreated);
+    }
   }
 
   try {

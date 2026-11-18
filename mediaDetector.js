@@ -289,6 +289,13 @@ const FILE_MIME_MAP = {
   'application/x-tar': '.tar',
   'application/x-7z-compressed': '.7z',
   'application/vnd.rar': '.rar',
+  'application/x-rar-compressed': '.rar',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
   'application/octet-stream': '.bin'
 };
 
@@ -309,11 +316,18 @@ function extractFilenameFromUrl(targetUrl, disposition = null, defaultExt = '') 
     const base = path.basename(pathname);
     if (base && base.length > 0 && !base.includes('?') && !base.includes('&')) {
       const clean = base.replace(/[^a-zA-Z0-9._\-]/g, '_').slice(0, 60);
-      if (clean && clean.length > 0) return clean;
+      if (clean && clean.length > 0) {
+        if (!path.extname(clean) && defaultExt) {
+          const normExt = defaultExt.startsWith('.') ? defaultExt : `.${defaultExt}`;
+          return `${clean}${normExt}`;
+        }
+        return clean;
+      }
     }
   } catch (_) {}
 
-  return `media_${Date.now().toString().slice(-6)}${defaultExt}`;
+  const normExt = defaultExt ? (defaultExt.startsWith('.') ? defaultExt : `.${defaultExt}`) : '';
+  return `media_${Date.now().toString().slice(-6)}${normExt}`;
 }
 
 // ── Safe HTTP/HTTPS Probe (Follows redirects + SSRF validation) ──────────────
@@ -827,8 +841,14 @@ function extractPageMedia(targetUrl, maxRedirects = 5) {
         const ogVideoRev = body.matchAll(/<meta\s+[^>]*content=["']([^"']+)["']\s+property=["']og:video(?::secure_url|:url)?["']/gi);
         for (const m of ogVideoRev) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
 
+        const twitterVideo = body.matchAll(/<meta\s+[^>]*(?:name|property)=["']twitter:player:stream["']\s+content=["']([^"']+)["']/gi);
+        for (const m of twitterVideo) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
+
         const html5Video = body.matchAll(/<(?:video|source)[^>]*src=["']([^"']+\.(?:mp4|webm|mov|m4v|mkv)[^"']*)["']/gi);
         for (const m of html5Video) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
+
+        const jsonLdVideoMatches = body.matchAll(/"(?:contentUrl|embedUrl)"\s*:\s*["']([^"']+\.(?:mp4|webm|mov|m4v|mkv)[^"']*)["']/gi);
+        for (const m of jsonLdVideoMatches) if (m[1]) videoCandidates.push(decodeHtmlEntities(m[1]));
 
         for (const rawCandidate of videoCandidates) {
           try {

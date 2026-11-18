@@ -54,6 +54,10 @@ function getPgPool() {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
+
+    pool.on('error', (err) => {
+      console.error('[DB] Unexpected error on idle PostgreSQL client:', err.message);
+    });
   }
   return pool;
 }
@@ -76,6 +80,36 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
     `;
     await client.query(createTableQuery);
+
+    // Non-destructive migration: copy any existing file-based users into PostgreSQL if users table is empty
+    try {
+      const res = await client.query('SELECT COUNT(*) AS count FROM users');
+      const count = parseInt(res.rows[0].count, 10) || 0;
+      if (count === 0 && fs.existsSync(USERS_FILE)) {
+        const fileUsers = loadUsersFile();
+        for (const u of fileUsers) {
+          if (u.email && u.password) {
+            await client.query(
+              `INSERT INTO users (id, email, password, role, is_active, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (email) DO NOTHING`,
+              [u.id || crypto.randomUUID(), u.email.toLowerCase(), u.password, u.role || 'user', u.is_active !== undefined ? u.is_active : 1, u.created_at || new Date().toISOString(), u.updated_at || new Date().toISOString()]
+            );
+          }
+        }
+        if (fileUsers.length > 0) {
+          console.log(`[DB] Successfully migrated ${fileUsers.length} existing users from file to PostgreSQL.`);
+        }
+      }
+    } catch (migErr) {
+      console.warn('[DB] User migration check notice:', migErr.message);
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    if (!fs.existsSync('/data')) {
+      console.warn('⚠️ [DB WARNING] Neither DATABASE_URL nor persistent /data disk is mounted.');
+      console.warn('⚠️ [DB WARNING] Admin-created users will only persist in temporary container storage.');
+      console.warn('⚠️ [DB WARNING] Configure Render PostgreSQL (DATABASE_URL) for permanent user persistence.');
+    }
   }
 
   dbInitialized = true;

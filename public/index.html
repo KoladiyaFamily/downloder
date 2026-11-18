@@ -1171,10 +1171,14 @@
     downloadBtn.addEventListener('click', () => {
       if (!currentVideoData || !currentVideoData.url) return;
       clearError();
-      resetProgressUI();
       const mediaType = currentVideoData.mediaType || 'video';
-      const label = mediaType === 'image' ? 'image' : (mediaType === 'audio' ? 'audio' : (mediaType === 'file' ? 'file' : 'video'));
       const selectedQuality = qualitySelect ? (qualitySelect.value || 'best') : 'best';
+      const isImage = mediaType === 'image';
+      const isAudio = mediaType === 'audio' || selectedQuality === 'audio';
+      const isFile = mediaType === 'file';
+      const label = isImage ? 'image' : (isAudio ? 'audio' : (isFile ? 'file' : 'video'));
+      const defaultFilename = isImage ? 'image.jpg' : (isAudio ? 'audio.mp3' : (isFile ? 'file.bin' : 'video.mp4'));
+      const defaultBtnText = isImage ? 'Download Image' : (isAudio ? 'Download Audio' : (isFile ? 'Download File' : 'Download Video'));
 
       downloadBtn.disabled = true;
       downloadBtnSpinner.style.display = 'inline-block';
@@ -1194,13 +1198,13 @@
         try {
           const data = JSON.parse(e.data);
           if (data.stage === 'preparing') {
-            downloadBtnText.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
-            progressStage.textContent = isImage ? 'Preparing image...' : 'Preparing video...';
+            downloadBtnText.textContent = `Preparing ${label}...`;
+            progressStage.textContent = `Preparing ${label}...`;
             progressBytes.textContent = 'Initializing transfer...';
           } else if (data.stage === 'downloading') {
             const pct = data.percent !== undefined ? data.percent : 0;
             downloadBtnText.textContent = `Downloading ${pct}%`;
-            progressStage.textContent = isImage ? 'Downloading image...' : 'Downloading video...';
+            progressStage.textContent = `Downloading ${label}...`;
             progressPercent.textContent = `${pct}%`;
             progressBar.style.width = `${pct}%`;
             if (data.downloaded && data.totalSize) progressBytes.textContent = `${data.downloaded} / ${data.totalSize}`;
@@ -1230,20 +1234,20 @@
             const fileUrl = `/api/file/${encodeURIComponent(data.downloadToken)}`;
             const a = document.createElement('a');
             a.href = fileUrl;
-            a.download = data.filename || (isImage ? 'image.jpg' : 'video.mp4');
+            a.download = data.filename || defaultFilename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             setTimeout(() => {
               downloadBtn.disabled = false;
-              downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+              downloadBtnText.textContent = defaultBtnText;
             }, 4000);
           } else if (data.stage === 'error') {
             if (activeEventSource) { activeEventSource.close(); activeEventSource = null; }
             progressBox.style.display = 'none';
             downloadBtn.disabled = false;
             downloadBtnSpinner.style.display = 'none';
-            downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+            downloadBtnText.textContent = defaultBtnText;
             showError(data.error || 'Unable to prepare this media resource.');
           }
         } catch (_) {}
@@ -1254,7 +1258,7 @@
         progressBox.style.display = 'none';
         downloadBtn.disabled = false;
         downloadBtnSpinner.style.display = 'none';
-        downloadBtnText.textContent = isImage ? 'Download Image' : 'Download Video';
+        downloadBtnText.textContent = defaultBtnText;
         showError('Unable to prepare this media resource. Please try again.');
       };
     });

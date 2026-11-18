@@ -276,9 +276,13 @@ async function runUniversalMediaSuite() {
 
   // ── TEST 8: YouTube Video (Existing Functionality Preserved) ──────────────
   console.log('\n--- Category 6: Existing YouTube Functionality ---');
+  await req('POST', '/api/test-reset-limits');
   try {
     const res = await req('POST', '/api/info', { url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ' });
-    assert('YouTube video extraction works as expected', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'video' && res.json?.title, `Resp: ${res.raw}`);
+    assert('YouTube video extraction returns mediaType=video', res.statusCode === 200 && res.json?.success && res.json?.mediaType === 'video', `Resp: ${res.raw}`);
+    assert('YouTube video metadata contains title, duration, thumbnail', !!(res.json?.title && res.json?.duration && res.json?.thumbnail), `Title: ${res.json?.title}`);
+    const hasVideoQualities = Array.isArray(res.json?.qualities) && res.json.qualities.some(q => q.value === 'best' || q.value === '720p' || q.value === '1080p');
+    assert('YouTube video returns available video resolution qualities', hasVideoQualities, `Qualities: ${JSON.stringify(res.json?.qualities)}`);
   } catch (e) {
     assert('YouTube extraction', false, e.message);
   }
